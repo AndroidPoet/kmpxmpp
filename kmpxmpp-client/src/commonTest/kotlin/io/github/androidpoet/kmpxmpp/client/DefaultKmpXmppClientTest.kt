@@ -7,6 +7,7 @@ import io.github.androidpoet.kmpxmpp.sasl.SaslAuthenticationService
 import io.github.androidpoet.kmpxmpp.sasl.SaslMechanism
 import io.github.androidpoet.kmpxmpp.security.SecurityPolicy
 import io.github.androidpoet.kmpxmpp.security.TlsMode
+import io.github.androidpoet.kmpxmpp.stream.XmppSessionContext
 import io.github.androidpoet.kmpxmpp.stream.XmppStreamEngine
 import io.github.androidpoet.kmpxmpp.stream.XmppStreamState
 import io.github.androidpoet.kmpxmpp.transport.XmppTransport
@@ -43,6 +44,22 @@ class DefaultKmpXmppClientTest {
     }
 
     @Test
+    fun test_client_authenticate_whenSessionContextMissing_returnsFailure() = runTest {
+        val stream = FakeStreamEngine(
+            startResult = XmppResult.Success(Unit),
+            stateAfterStart = XmppStreamState.Ready,
+            contextAfterStart = null,
+        )
+        val client = DefaultKmpXmppClient(streamEngine = stream, transport = FakeTransport())
+
+        client.connect()
+        val result = client.authenticate(Jid("alice", "example.com"), "secret")
+
+        assertIs<XmppResult.Failure>(result)
+        assertEquals("Missing stream session context.", result.error.message)
+    }
+
+    @Test
     fun test_client_authenticate_whenAuthServiceFails_propagatesFailure() = runTest {
         val stream = FakeStreamEngine(
             startResult = XmppResult.Success(Unit),
@@ -68,6 +85,10 @@ class DefaultKmpXmppClientTest {
         val stream = FakeStreamEngine(
             startResult = XmppResult.Success(Unit),
             stateAfterStart = XmppStreamState.Ready,
+            contextAfterStart = XmppSessionContext(
+                tlsActive = false,
+                serverMechanisms = setOf(SaslMechanism.Plain),
+            ),
         )
         val client = DefaultKmpXmppClient(
             streamEngine = stream,
@@ -79,8 +100,6 @@ class DefaultKmpXmppClientTest {
             saslAuthenticationService = FakeAuthService(
                 result = XmppResult.Success(SaslMechanism.Plain),
             ),
-            tlsActiveProvider = { false },
-            serverMechanismsProvider = { setOf(SaslMechanism.Plain) },
         )
 
         client.connect()
@@ -163,12 +182,18 @@ private class FakeStreamEngine(
     private val startResult: XmppResult<Unit>,
     private val stopResult: XmppResult<Unit> = XmppResult.Success(Unit),
     private val stateAfterStart: XmppStreamState,
+    private val contextAfterStart: XmppSessionContext? = XmppSessionContext(
+        tlsActive = true,
+        serverMechanisms = setOf(SaslMechanism.ScramSha256, SaslMechanism.Plain),
+    ),
 ) : XmppStreamEngine {
     override var state: XmppStreamState = XmppStreamState.Disconnected
+    override var sessionContext: XmppSessionContext? = null
 
     override suspend fun start(): XmppResult<Unit> {
         if (startResult is XmppResult.Success) {
             state = stateAfterStart
+            sessionContext = contextAfterStart
         }
         return startResult
     }
@@ -176,6 +201,7 @@ private class FakeStreamEngine(
     override suspend fun stop(): XmppResult<Unit> {
         if (stopResult is XmppResult.Success) {
             state = XmppStreamState.Disconnected
+            sessionContext = null
         }
         return stopResult
     }

@@ -6,7 +6,6 @@ import io.github.androidpoet.kmpxmpp.core.XmppResult
 import io.github.androidpoet.kmpxmpp.core.flatMap
 import io.github.androidpoet.kmpxmpp.sasl.DefaultSaslAuthenticationService
 import io.github.androidpoet.kmpxmpp.sasl.SaslAuthenticationService
-import io.github.androidpoet.kmpxmpp.sasl.SaslMechanism
 import io.github.androidpoet.kmpxmpp.security.SecurityPolicy
 import io.github.androidpoet.kmpxmpp.security.validateAuthMechanism
 import io.github.androidpoet.kmpxmpp.stream.XmppStreamEngine
@@ -18,10 +17,6 @@ public class DefaultKmpXmppClient(
     private val transport: XmppTransport,
     private val securityPolicy: SecurityPolicy = SecurityPolicy(),
     private val saslAuthenticationService: SaslAuthenticationService = DefaultSaslAuthenticationService(),
-    private val tlsActiveProvider: () -> Boolean = { true },
-    private val serverMechanismsProvider: () -> Set<SaslMechanism> = {
-        setOf(SaslMechanism.ScramSha256, SaslMechanism.ScramSha1, SaslMechanism.Plain)
-    },
 ) : KmpXmppClient {
 
     private var authenticatedJid: Jid? = null
@@ -33,18 +28,18 @@ public class DefaultKmpXmppClient(
             return XmppResult.Failure(XmppError("Cannot authenticate before stream is ready."))
         }
 
-        val tlsActive = tlsActiveProvider()
-        val mechanisms = serverMechanismsProvider()
+        val context = streamEngine.sessionContext
+            ?: return XmppResult.Failure(XmppError("Missing stream session context."))
 
         return saslAuthenticationService.authenticate(
             jid = jid,
             password = password,
-            tlsActive = tlsActive,
-            serverMechanisms = mechanisms,
+            tlsActive = context.tlsActive,
+            serverMechanisms = context.serverMechanisms,
         ).flatMap { selectedMechanism ->
             securityPolicy.validateAuthMechanism(
                 mechanism = selectedMechanism,
-                tlsActive = tlsActive,
+                tlsActive = context.tlsActive,
             )
         }.flatMap {
             authenticatedJid = jid
