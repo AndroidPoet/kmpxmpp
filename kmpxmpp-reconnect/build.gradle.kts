@@ -26,6 +26,8 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            api(project(":kmpxmpp-core"))
+            api(project(":kmpxmpp-client"))
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
         }
@@ -37,7 +39,7 @@ kotlin {
 }
 
 android {
-    namespace = "io.github.androidpoet.kmpxmpp.modules.kmpxmpp_reconnect"
+    namespace = "io.github.androidpoet.kmpxmpp.reconnect"
     compileSdk = Configuration.COMPILE_SDK
     defaultConfig { minSdk = Configuration.MIN_SDK }
 }
