@@ -3,6 +3,10 @@ package io.github.androidpoet.kmpxmpp.client
 import io.github.androidpoet.kmpxmpp.core.Jid
 import io.github.androidpoet.kmpxmpp.core.XmppError
 import io.github.androidpoet.kmpxmpp.core.XmppResult
+import io.github.androidpoet.kmpxmpp.sasl.SaslAuthenticationService
+import io.github.androidpoet.kmpxmpp.sasl.SaslMechanism
+import io.github.androidpoet.kmpxmpp.security.SecurityPolicy
+import io.github.androidpoet.kmpxmpp.security.TlsMode
 import io.github.androidpoet.kmpxmpp.stream.XmppStreamEngine
 import io.github.androidpoet.kmpxmpp.stream.XmppStreamState
 import io.github.androidpoet.kmpxmpp.transport.XmppTransport
@@ -39,6 +43,54 @@ class DefaultKmpXmppClientTest {
     }
 
     @Test
+    fun test_client_authenticate_whenAuthServiceFails_propagatesFailure() = runTest {
+        val stream = FakeStreamEngine(
+            startResult = XmppResult.Success(Unit),
+            stateAfterStart = XmppStreamState.Ready,
+        )
+        val client = DefaultKmpXmppClient(
+            streamEngine = stream,
+            transport = FakeTransport(),
+            saslAuthenticationService = FakeAuthService(
+                result = XmppResult.Failure(XmppError("auth-service-failed")),
+            ),
+        )
+
+        client.connect()
+        val result = client.authenticate(Jid("alice", "example.com"), "secret")
+
+        assertIs<XmppResult.Failure>(result)
+        assertEquals("auth-service-failed", result.error.message)
+    }
+
+    @Test
+    fun test_client_authenticate_whenPolicyRejectsMechanism_propagatesFailure() = runTest {
+        val stream = FakeStreamEngine(
+            startResult = XmppResult.Success(Unit),
+            stateAfterStart = XmppStreamState.Ready,
+        )
+        val client = DefaultKmpXmppClient(
+            streamEngine = stream,
+            transport = FakeTransport(),
+            securityPolicy = SecurityPolicy(
+                tlsMode = TlsMode.Required,
+                allowPlainAuthWithoutTls = false,
+            ),
+            saslAuthenticationService = FakeAuthService(
+                result = XmppResult.Success(SaslMechanism.Plain),
+            ),
+            tlsActiveProvider = { false },
+            serverMechanismsProvider = { setOf(SaslMechanism.Plain) },
+        )
+
+        client.connect()
+        val result = client.authenticate(Jid("alice", "example.com"), "secret")
+
+        assertIs<XmppResult.Failure>(result)
+        assertEquals("SASL PLAIN without TLS is disabled by policy.", result.error.message)
+    }
+
+    @Test
     fun test_client_sendStanza_whenNotAuthenticated_returnsFailure() = runTest {
         val client = DefaultKmpXmppClient(
             streamEngine = FakeStreamEngine(startResult = XmppResult.Success(Unit), stateAfterStart = XmppStreamState.Ready),
@@ -58,7 +110,11 @@ class DefaultKmpXmppClientTest {
             stateAfterStart = XmppStreamState.Ready,
         )
         val transport = FakeTransport(writeResult = XmppResult.Failure(XmppError("write-failed")))
-        val client = DefaultKmpXmppClient(streamEngine = stream, transport = transport)
+        val client = DefaultKmpXmppClient(
+            streamEngine = stream,
+            transport = transport,
+            saslAuthenticationService = FakeAuthService(XmppResult.Success(SaslMechanism.ScramSha256)),
+        )
 
         client.connect()
         client.authenticate(Jid("alice", "example.com"), "secret")
@@ -75,7 +131,11 @@ class DefaultKmpXmppClientTest {
             stopResult = XmppResult.Success(Unit),
             stateAfterStart = XmppStreamState.Ready,
         )
-        val client = DefaultKmpXmppClient(streamEngine = stream, transport = FakeTransport())
+        val client = DefaultKmpXmppClient(
+            streamEngine = stream,
+            transport = FakeTransport(),
+            saslAuthenticationService = FakeAuthService(XmppResult.Success(SaslMechanism.ScramSha256)),
+        )
 
         client.connect()
         client.authenticate(Jid("alice", "example.com"), "secret")
@@ -86,6 +146,17 @@ class DefaultKmpXmppClientTest {
         assertIs<XmppResult.Failure>(sendAfterDisconnect)
         assertEquals("Cannot send stanza before authentication.", sendAfterDisconnect.error.message)
     }
+}
+
+private class FakeAuthService(
+    private val result: XmppResult<SaslMechanism>,
+) : SaslAuthenticationService {
+    override suspend fun authenticate(
+        jid: Jid,
+        password: String,
+        tlsActive: Boolean,
+        serverMechanisms: Set<SaslMechanism>,
+    ): XmppResult<SaslMechanism> = result
 }
 
 private class FakeStreamEngine(

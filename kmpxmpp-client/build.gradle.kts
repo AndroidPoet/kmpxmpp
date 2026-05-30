@@ -29,6 +29,8 @@ kotlin {
             api(project(":kmpxmpp-core"))
             api(project(":kmpxmpp-stream"))
             api(project(":kmpxmpp-transport"))
+            api(project(":kmpxmpp-security"))
+            api(project(":kmpxmpp-sasl"))
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
         }
