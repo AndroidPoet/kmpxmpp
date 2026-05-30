@@ -33,6 +33,86 @@ public data class XmppError(
     val cause: Throwable? = null,
 )
 
+public fun xmppErrorUnknown(
+    message: String,
+    stage: XmppErrorStage = XmppErrorStage.Unknown,
+    recoverable: Boolean = false,
+    cause: Throwable? = null,
+): XmppError = XmppError(
+    message = message,
+    code = XmppErrorCode.Unknown,
+    stage = stage,
+    recoverable = recoverable,
+    cause = cause,
+)
+
+public fun xmppErrorInvalidState(
+    message: String,
+    stage: XmppErrorStage,
+    recoverable: Boolean = false,
+): XmppError = XmppError(
+    message = message,
+    code = XmppErrorCode.InvalidState,
+    stage = stage,
+    recoverable = recoverable,
+)
+
+public fun xmppErrorInvalidInput(
+    message: String,
+    stage: XmppErrorStage,
+    recoverable: Boolean = true,
+): XmppError = XmppError(
+    message = message,
+    code = XmppErrorCode.InvalidInput,
+    stage = stage,
+    recoverable = recoverable,
+)
+
+public fun xmppErrorSecurityViolation(
+    message: String,
+    stage: XmppErrorStage,
+    recoverable: Boolean,
+): XmppError = XmppError(
+    message = message,
+    code = XmppErrorCode.SecurityPolicyViolation,
+    stage = stage,
+    recoverable = recoverable,
+)
+
+public fun xmppErrorAuthentication(
+    message: String,
+    recoverable: Boolean,
+): XmppError = XmppError(
+    message = message,
+    code = XmppErrorCode.AuthenticationFailed,
+    stage = XmppErrorStage.Authentication,
+    recoverable = recoverable,
+)
+
+public fun xmppErrorParsing(
+    message: String,
+    stage: XmppErrorStage = XmppErrorStage.StreamNegotiation,
+    recoverable: Boolean = true,
+): XmppError = XmppError(
+    message = message,
+    code = XmppErrorCode.ParsingFailed,
+    stage = stage,
+    recoverable = recoverable,
+)
+
+public fun xmppErrorTransport(
+    message: String,
+    stage: XmppErrorStage,
+    recoverable: Boolean,
+    cause: Throwable? = null,
+): XmppError = XmppError(
+    message = message,
+    code = XmppErrorCode.TransportFailure,
+    stage = stage,
+    recoverable = recoverable,
+    cause = cause,
+)
+
 public inline fun <T, R> XmppResult<T>.map(transform: (T) -> R): XmppResult<R> = when (this) {
     is XmppResult.Success -> XmppResult.Success(transform(value))
     is XmppResult.Failure -> this
@@ -86,11 +166,8 @@ public inline fun <T> xmppResultOf(block: () -> T): XmppResult<T> =
         XmppResult.Success(block())
     } catch (throwable: Throwable) {
         XmppResult.Failure(
-            XmppError(
+            xmppErrorUnknown(
                 message = throwable.message ?: "Unexpected failure",
-                code = XmppErrorCode.Unknown,
-                stage = XmppErrorStage.Unknown,
-                recoverable = false,
                 cause = throwable,
             ),
         )
@@ -101,11 +178,8 @@ public suspend inline fun <T> xmppResultOfSuspend(crossinline block: suspend () 
         XmppResult.Success(block())
     } catch (throwable: Throwable) {
         XmppResult.Failure(
-            XmppError(
+            xmppErrorUnknown(
                 message = throwable.message ?: "Unexpected failure",
-                code = XmppErrorCode.Unknown,
-                stage = XmppErrorStage.Unknown,
-                recoverable = false,
                 cause = throwable,
             ),
         )

@@ -1,9 +1,8 @@
 package io.github.androidpoet.kmpxmpp.security
 
-import io.github.androidpoet.kmpxmpp.core.XmppError
-import io.github.androidpoet.kmpxmpp.core.XmppErrorCode
 import io.github.androidpoet.kmpxmpp.core.XmppErrorStage
 import io.github.androidpoet.kmpxmpp.core.XmppResult
+import io.github.androidpoet.kmpxmpp.core.xmppErrorSecurityViolation
 import io.github.androidpoet.kmpxmpp.sasl.SaslMechanism
 
 public enum class TlsMode {
@@ -20,9 +19,8 @@ public data class SecurityPolicy(
 public fun SecurityPolicy.validateTlsState(tlsActive: Boolean): XmppResult<Unit> {
     if (tlsMode == TlsMode.Required && !tlsActive) {
         return XmppResult.Failure(
-            XmppError(
+            xmppErrorSecurityViolation(
                 message = "TLS is required by policy but not active.",
-                code = XmppErrorCode.SecurityPolicyViolation,
                 stage = XmppErrorStage.Tls,
                 recoverable = false,
             ),
@@ -38,9 +36,8 @@ public fun SecurityPolicy.validateAuthMechanism(
 ): XmppResult<Unit> {
     if (mechanism == SaslMechanism.Plain && !tlsActive && !allowPlainAuthWithoutTls) {
         return XmppResult.Failure(
-            XmppError(
+            xmppErrorSecurityViolation(
                 message = "SASL PLAIN without TLS is disabled by policy.",
-                code = XmppErrorCode.SecurityPolicyViolation,
                 stage = XmppErrorStage.Authentication,
                 recoverable = true,
             ),

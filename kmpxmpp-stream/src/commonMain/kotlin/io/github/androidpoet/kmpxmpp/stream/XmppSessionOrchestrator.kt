@@ -1,9 +1,10 @@
 package io.github.androidpoet.kmpxmpp.stream
 
-import io.github.androidpoet.kmpxmpp.core.XmppError
 import io.github.androidpoet.kmpxmpp.core.XmppResult
+import io.github.androidpoet.kmpxmpp.core.XmppErrorStage
 import io.github.androidpoet.kmpxmpp.core.flatMap
 import io.github.androidpoet.kmpxmpp.core.getOrThrow
+import io.github.androidpoet.kmpxmpp.core.xmppErrorInvalidState
 import io.github.androidpoet.kmpxmpp.core.xmppResultOf
 import io.github.androidpoet.kmpxmpp.core.xmppResultOfSuspend
 import io.github.androidpoet.kmpxmpp.security.TlsMode
@@ -51,7 +52,11 @@ public class XmppSessionOrchestrator(
                         .flatMap {
                             val selected = parsedFeatures.mechanisms.firstOrNull()
                                 ?: return@flatMap XmppResult.Failure(
-                                    XmppError("No server SASL mechanism available for authentication."),
+                                    xmppErrorInvalidState(
+                                        message = "No server SASL mechanism available for authentication.",
+                                        stage = XmppErrorStage.Authentication,
+                                        recoverable = false,
+                                    ),
                                 )
                             config.securityPolicy.validateAuthMechanism(selected, tlsActiveAfterHandshake)
                         }
@@ -73,7 +78,11 @@ public class XmppSessionOrchestrator(
     private fun transitionTo(next: XmppStreamState): XmppResult<Unit> {
         if (!isTransitionAllowed(state, next)) {
             return XmppResult.Failure(
-                XmppError("Invalid stream transition from $state to $next."),
+                xmppErrorInvalidState(
+                    message = "Invalid stream transition from $state to $next.",
+                    stage = XmppErrorStage.StreamNegotiation,
+                    recoverable = false,
+                ),
             )
         }
 

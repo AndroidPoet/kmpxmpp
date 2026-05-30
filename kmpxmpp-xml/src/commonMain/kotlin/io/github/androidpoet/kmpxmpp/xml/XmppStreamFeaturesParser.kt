@@ -1,9 +1,7 @@
 package io.github.androidpoet.kmpxmpp.xml
 
-import io.github.androidpoet.kmpxmpp.core.XmppError
-import io.github.androidpoet.kmpxmpp.core.XmppErrorCode
-import io.github.androidpoet.kmpxmpp.core.XmppErrorStage
 import io.github.androidpoet.kmpxmpp.core.XmppResult
+import io.github.androidpoet.kmpxmpp.core.xmppErrorParsing
 import io.github.androidpoet.kmpxmpp.sasl.SaslMechanism
 
 public interface XmppStreamFeaturesParser {
@@ -14,24 +12,14 @@ public class DefaultXmppStreamFeaturesParser : XmppStreamFeaturesParser {
     override fun parse(xml: String): XmppResult<XmppStreamFeatures> {
         if (!xml.contains("<stream:features") && !xml.contains("<features")) {
             return XmppResult.Failure(
-                XmppError(
-                    message = "Missing <stream:features> root element.",
-                    code = XmppErrorCode.ParsingFailed,
-                    stage = XmppErrorStage.StreamNegotiation,
-                    recoverable = true,
-                ),
+                xmppErrorParsing("Missing <stream:features> root element."),
             )
         }
 
         val mechanisms = parseMechanisms(xml)
         if (mechanisms.isEmpty()) {
             return XmppResult.Failure(
-                XmppError(
-                    message = "No SASL mechanisms found in stream features.",
-                    code = XmppErrorCode.ParsingFailed,
-                    stage = XmppErrorStage.StreamNegotiation,
-                    recoverable = true,
-                ),
+                xmppErrorParsing("No SASL mechanisms found in stream features."),
             )
         }
 

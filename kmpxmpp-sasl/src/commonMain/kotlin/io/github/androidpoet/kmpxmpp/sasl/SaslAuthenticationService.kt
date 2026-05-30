@@ -1,10 +1,11 @@
 package io.github.androidpoet.kmpxmpp.sasl
 
 import io.github.androidpoet.kmpxmpp.core.Jid
-import io.github.androidpoet.kmpxmpp.core.XmppError
-import io.github.androidpoet.kmpxmpp.core.XmppErrorCode
 import io.github.androidpoet.kmpxmpp.core.XmppErrorStage
 import io.github.androidpoet.kmpxmpp.core.XmppResult
+import io.github.androidpoet.kmpxmpp.core.xmppErrorAuthentication
+import io.github.androidpoet.kmpxmpp.core.xmppErrorInvalidInput
+import io.github.androidpoet.kmpxmpp.core.xmppErrorSecurityViolation
 
 public interface SaslAuthenticationService {
     public suspend fun authenticate(
@@ -24,9 +25,8 @@ public class DefaultSaslAuthenticationService : SaslAuthenticationService {
     ): XmppResult<SaslMechanism> {
         if (jid.domain.isBlank()) {
             return XmppResult.Failure(
-                XmppError(
+                xmppErrorInvalidInput(
                     message = "JID domain cannot be blank.",
-                    code = XmppErrorCode.InvalidInput,
                     stage = XmppErrorStage.Authentication,
                     recoverable = false,
                 ),
@@ -34,9 +34,8 @@ public class DefaultSaslAuthenticationService : SaslAuthenticationService {
         }
         if (password.isEmpty()) {
             return XmppResult.Failure(
-                XmppError(
+                xmppErrorInvalidInput(
                     message = "Password cannot be empty.",
-                    code = XmppErrorCode.InvalidInput,
                     stage = XmppErrorStage.Authentication,
                     recoverable = true,
                 ),
@@ -46,10 +45,8 @@ public class DefaultSaslAuthenticationService : SaslAuthenticationService {
         val supported = rankedClientMechanisms().filter { it in serverMechanisms }
         if (supported.isEmpty()) {
             return XmppResult.Failure(
-                XmppError(
+                xmppErrorAuthentication(
                     message = "No compatible SASL mechanism found with server.",
-                    code = XmppErrorCode.AuthenticationFailed,
-                    stage = XmppErrorStage.Authentication,
                     recoverable = true,
                 ),
             )
@@ -58,9 +55,8 @@ public class DefaultSaslAuthenticationService : SaslAuthenticationService {
         val selected = supported.first()
         if (selected == SaslMechanism.Plain && !tlsActive) {
             return XmppResult.Failure(
-                XmppError(
+                xmppErrorSecurityViolation(
                     message = "SASL PLAIN requires TLS.",
-                    code = XmppErrorCode.SecurityPolicyViolation,
                     stage = XmppErrorStage.Authentication,
                     recoverable = true,
                 ),
