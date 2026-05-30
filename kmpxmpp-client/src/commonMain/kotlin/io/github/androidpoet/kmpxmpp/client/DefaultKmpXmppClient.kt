@@ -6,6 +6,8 @@ import io.github.androidpoet.kmpxmpp.core.XmppResult
 import io.github.androidpoet.kmpxmpp.core.XmppResultException
 import io.github.androidpoet.kmpxmpp.core.flatMap
 import io.github.androidpoet.kmpxmpp.core.getOrThrow
+import io.github.androidpoet.kmpxmpp.core.retryXmppResult
+import io.github.androidpoet.kmpxmpp.core.XmppRetryPolicy
 import io.github.androidpoet.kmpxmpp.core.xmppResultOfSuspend
 import io.github.androidpoet.kmpxmpp.sasl.DefaultSaslAuthenticationService
 import io.github.androidpoet.kmpxmpp.sasl.SaslAuthenticationService
@@ -20,13 +22,16 @@ public class DefaultKmpXmppClient(
     private val transport: XmppTransport,
     private val securityPolicy: SecurityPolicy = SecurityPolicy(),
     private val saslAuthenticationService: SaslAuthenticationService = DefaultSaslAuthenticationService(),
+    private val connectRetryPolicy: XmppRetryPolicy = XmppRetryPolicy(maxAttempts = 1),
 ) : KmpXmppClient {
 
     private var authenticatedJid: Jid? = null
 
     override suspend fun connect(): XmppResult<Unit> =
-        xmppResultOfSuspend(stage = XmppErrorStage.Connect, recoverable = true) {
-            streamEngine.start().getOrThrow()
+        retryXmppResult(policy = connectRetryPolicy) {
+            xmppResultOfSuspend(stage = XmppErrorStage.Connect, recoverable = true) {
+                streamEngine.start().getOrThrow()
+            }
         }
 
     override suspend fun authenticate(jid: Jid, password: String): XmppResult<Unit> =

@@ -3,6 +3,7 @@ package io.github.androidpoet.kmpxmpp.client
 import io.github.androidpoet.kmpxmpp.core.Jid
 import io.github.androidpoet.kmpxmpp.core.XmppError
 import io.github.androidpoet.kmpxmpp.core.XmppResult
+import io.github.androidpoet.kmpxmpp.core.XmppRetryPolicy
 import io.github.androidpoet.kmpxmpp.sasl.SaslAuthenticationService
 import io.github.androidpoet.kmpxmpp.sasl.SaslMechanism
 import io.github.androidpoet.kmpxmpp.security.SecurityPolicy
@@ -27,6 +28,21 @@ class DefaultKmpXmppClientTest {
         val result = client.connect()
 
         assertIs<XmppResult.Success<Unit>>(result)
+    }
+
+    @Test
+    fun test_client_connect_whenFirstAttemptFailsAndRetryEnabled_succeedsAfterRetry() = runTest {
+        val stream = FlakyStreamEngine(failuresBeforeSuccess = 1)
+        val client = DefaultKmpXmppClient(
+            streamEngine = stream,
+            transport = FakeTransport(),
+            connectRetryPolicy = XmppRetryPolicy(maxAttempts = 2),
+        )
+
+        val result = client.connect()
+
+        assertIs<XmppResult.Success<Unit>>(result)
+        assertEquals(2, stream.startCalls)
     }
 
     @Test
@@ -252,6 +268,33 @@ private class FakeStreamEngine(
             sessionContext = null
         }
         return stopResult
+    }
+}
+
+private class FlakyStreamEngine(
+    private val failuresBeforeSuccess: Int,
+) : XmppStreamEngine {
+    override var state: XmppStreamState = XmppStreamState.Disconnected
+    override var sessionContext: XmppSessionContext? = XmppSessionContext(
+        tlsActive = true,
+        serverMechanisms = setOf(SaslMechanism.ScramSha256),
+    )
+    var startCalls: Int = 0
+
+    override suspend fun start(): XmppResult<Unit> {
+        startCalls += 1
+        return if (startCalls <= failuresBeforeSuccess) {
+            XmppResult.Failure(XmppError("temporary-connect-fail", recoverable = true))
+        } else {
+            state = XmppStreamState.Ready
+            XmppResult.Success(Unit)
+        }
+    }
+
+    override suspend fun stop(): XmppResult<Unit> {
+        state = XmppStreamState.Disconnected
+        sessionContext = null
+        return XmppResult.Success(Unit)
     }
 }
 
