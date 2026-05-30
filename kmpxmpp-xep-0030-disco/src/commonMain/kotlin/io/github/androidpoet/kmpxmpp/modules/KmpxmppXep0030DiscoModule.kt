@@ -1,3 +1,0 @@
-package io.github.androidpoet.kmpxmpp.modules.kmpxmpp_xep_0030_disco
-
-public object KmpxmppXep0030DiscoModule

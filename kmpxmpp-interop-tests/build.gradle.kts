@@ -26,6 +26,11 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            api(project(":kmpxmpp-core"))
+            api(project(":kmpxmpp-client"))
+            api(project(":kmpxmpp-im"))
+            api(project(":kmpxmpp-xep-0199-ping"))
+            api(project(":kmpxmpp-xep-0184-receipts"))
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
         }

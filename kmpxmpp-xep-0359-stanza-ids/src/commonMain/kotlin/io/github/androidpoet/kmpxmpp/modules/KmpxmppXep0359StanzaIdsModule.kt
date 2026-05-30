@@ -1,3 +1,0 @@
-package io.github.androidpoet.kmpxmpp.modules.kmpxmpp_xep_0359_stanza_ids
-
-public object KmpxmppXep0359StanzaIdsModule

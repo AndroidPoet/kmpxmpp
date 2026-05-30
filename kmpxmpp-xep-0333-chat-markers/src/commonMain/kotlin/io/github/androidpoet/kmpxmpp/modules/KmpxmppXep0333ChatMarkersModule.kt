@@ -1,3 +1,0 @@
-package io.github.androidpoet.kmpxmpp.modules.kmpxmpp_xep_0333_chat_markers
-
-public object KmpxmppXep0333ChatMarkersModule

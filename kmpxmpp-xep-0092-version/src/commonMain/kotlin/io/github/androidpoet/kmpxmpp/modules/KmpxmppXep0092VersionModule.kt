@@ -1,3 +1,0 @@
-package io.github.androidpoet.kmpxmpp.modules.kmpxmpp_xep_0092_version
-
-public object KmpxmppXep0092VersionModule

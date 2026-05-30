@@ -1,3 +1,0 @@
-package io.github.androidpoet.kmpxmpp.modules.kmpxmpp_xep_0184_receipts
-
-public object KmpxmppXep0184ReceiptsModule

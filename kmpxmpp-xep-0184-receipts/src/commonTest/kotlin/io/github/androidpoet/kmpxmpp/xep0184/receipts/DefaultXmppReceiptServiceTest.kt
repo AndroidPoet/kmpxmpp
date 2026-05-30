@@ -1,0 +1,83 @@
+package io.github.androidpoet.kmpxmpp.xep0184.receipts
+
+import io.github.androidpoet.kmpxmpp.client.KmpXmppClient
+import io.github.androidpoet.kmpxmpp.core.Jid
+import io.github.androidpoet.kmpxmpp.core.XmppErrorCode
+import io.github.androidpoet.kmpxmpp.core.XmppErrorStage
+import io.github.androidpoet.kmpxmpp.core.XmppResult
+import kotlinx.coroutines.test.runTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertTrue
+
+class DefaultXmppReceiptServiceTest {
+    @Test
+    fun test_sendMessageWithReceiptRequest_whenValidInput_sendsReceiptRequestStanza() = runTest {
+        val client = FakeReceiptClient(sendResult = XmppResult.Success(Unit))
+        val service = DefaultXmppReceiptService(client)
+
+        val result = service.sendMessageWithReceiptRequest(
+            to = Jid(local = "alice", domain = "example.com"),
+            body = "hi & <there>",
+            messageId = "msg-1",
+        )
+
+        assertIs<XmppResult.Success<Unit>>(result)
+        assertEquals(1, client.sendCalls)
+        assertTrue(client.lastStanza!!.contains("xmlns='urn:xmpp:receipts'"))
+        assertTrue(client.lastStanza!!.contains("<request"))
+        assertTrue(client.lastStanza!!.contains("&lt;there&gt;"))
+    }
+
+    @Test
+    fun test_sendMessageWithReceiptRequest_whenMessageIdBlank_returnsFailure() = runTest {
+        val service = DefaultXmppReceiptService(FakeReceiptClient(sendResult = XmppResult.Success(Unit)))
+
+        val result = service.sendMessageWithReceiptRequest(
+            to = Jid(local = "alice", domain = "example.com"),
+            body = "hello",
+            messageId = " ",
+        )
+
+        assertIs<XmppResult.Failure>(result)
+        assertEquals(XmppErrorCode.InvalidInput, result.error.code)
+        assertEquals(XmppErrorStage.Messaging, result.error.stage)
+        assertEquals("Message id cannot be blank.", result.error.message)
+    }
+
+    @Test
+    fun test_sendReceivedReceipt_whenValidInput_sendsReceivedStanza() = runTest {
+        val client = FakeReceiptClient(sendResult = XmppResult.Success(Unit))
+        val service = DefaultXmppReceiptService(client)
+
+        val result = service.sendReceivedReceipt(
+            to = Jid(local = "bob", domain = "example.com"),
+            receiptId = "m-22",
+        )
+
+        assertIs<XmppResult.Success<Unit>>(result)
+        assertEquals(1, client.sendCalls)
+        assertTrue(client.lastStanza!!.contains("<received"))
+        assertTrue(client.lastStanza!!.contains("id='m-22'"))
+    }
+}
+
+private class FakeReceiptClient(
+    private val sendResult: XmppResult<Unit>,
+) : KmpXmppClient {
+    var sendCalls: Int = 0
+    var lastStanza: String? = null
+
+    override suspend fun connect(): XmppResult<Unit> = XmppResult.Success(Unit)
+
+    override suspend fun authenticate(jid: Jid, password: String): XmppResult<Unit> = XmppResult.Success(Unit)
+
+    override suspend fun sendStanza(rawXml: String): XmppResult<Unit> {
+        sendCalls += 1
+        lastStanza = rawXml
+        return sendResult
+    }
+
+    override suspend fun disconnect(): XmppResult<Unit> = XmppResult.Success(Unit)
+}

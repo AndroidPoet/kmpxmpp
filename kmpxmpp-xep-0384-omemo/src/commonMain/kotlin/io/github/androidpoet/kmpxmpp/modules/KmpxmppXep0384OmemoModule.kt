@@ -1,3 +1,0 @@
-package io.github.androidpoet.kmpxmpp.modules.kmpxmpp_xep_0384_omemo
-
-public object KmpxmppXep0384OmemoModule

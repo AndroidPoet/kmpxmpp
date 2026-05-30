@@ -1,3 +1,0 @@
-package io.github.androidpoet.kmpxmpp.modules.kmpxmpp_xep_0048_bookmarks
-
-public object KmpxmppXep0048BookmarksModule

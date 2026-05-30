@@ -1,3 +1,0 @@
-package io.github.androidpoet.kmpxmpp.modules.kmpxmpp_xep_0363_http_upload
-
-public object KmpxmppXep0363HttpUploadModule

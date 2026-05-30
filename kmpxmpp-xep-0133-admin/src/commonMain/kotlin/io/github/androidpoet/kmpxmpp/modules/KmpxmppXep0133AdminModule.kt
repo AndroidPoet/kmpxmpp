@@ -1,3 +1,0 @@
-package io.github.androidpoet.kmpxmpp.modules.kmpxmpp_xep_0133_admin
-
-public object KmpxmppXep0133AdminModule

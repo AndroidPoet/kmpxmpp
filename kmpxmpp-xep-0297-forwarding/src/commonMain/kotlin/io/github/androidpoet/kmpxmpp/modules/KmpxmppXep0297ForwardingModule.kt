@@ -1,3 +1,0 @@
-package io.github.androidpoet.kmpxmpp.modules.kmpxmpp_xep_0297_forwarding
-
-public object KmpxmppXep0297ForwardingModule

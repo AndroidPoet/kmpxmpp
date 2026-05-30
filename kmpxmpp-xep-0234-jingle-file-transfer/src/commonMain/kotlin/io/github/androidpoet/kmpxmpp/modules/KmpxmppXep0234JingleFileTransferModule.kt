@@ -1,3 +1,0 @@
-package io.github.androidpoet.kmpxmpp.modules.kmpxmpp_xep_0234_jingle_file_transfer
-
-public object KmpxmppXep0234JingleFileTransferModule
