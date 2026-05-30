@@ -28,7 +28,7 @@ public class XmppSessionOrchestrator(
         private set
 
     override suspend fun start(): XmppResult<Unit> =
-        xmppResultOfSuspend {
+        xmppResultOfSuspend(stage = XmppErrorStage.StreamNegotiation) {
             val tlsActiveAfterHandshake = config.tlsInitiallyActive || config.securityPolicy.tlsMode != TlsMode.Disabled
 
             transport.connect(config.host, config.port)
@@ -38,7 +38,7 @@ public class XmppSessionOrchestrator(
                         .flatMap { transitionTo(XmppStreamState.FeaturesReceived) }
                 }
                 .flatMap {
-                    xmppResultOf { featuresXmlProvider() }
+                    xmppResultOf(stage = XmppErrorStage.StreamNegotiation, recoverable = true) { featuresXmlProvider() }
                         .flatMap { featuresXml -> featuresParser.parse(featuresXml) }
                 }
                 .flatMap { parsedFeatures ->
@@ -68,7 +68,7 @@ public class XmppSessionOrchestrator(
         }
 
     override suspend fun stop(): XmppResult<Unit> =
-        xmppResultOfSuspend {
+        xmppResultOfSuspend(stage = XmppErrorStage.Disconnect, recoverable = true) {
             transport.close().flatMap {
                 sessionContext = null
                 transitionTo(XmppStreamState.Disconnected)

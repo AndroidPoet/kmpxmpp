@@ -1,7 +1,7 @@
 package io.github.androidpoet.kmpxmpp.client
 
 import io.github.androidpoet.kmpxmpp.core.Jid
-import io.github.androidpoet.kmpxmpp.core.XmppError
+import io.github.androidpoet.kmpxmpp.core.XmppErrorStage
 import io.github.androidpoet.kmpxmpp.core.XmppResult
 import io.github.androidpoet.kmpxmpp.core.XmppResultException
 import io.github.androidpoet.kmpxmpp.core.flatMap
@@ -25,12 +25,12 @@ public class DefaultKmpXmppClient(
     private var authenticatedJid: Jid? = null
 
     override suspend fun connect(): XmppResult<Unit> =
-        xmppResultOfSuspend {
+        xmppResultOfSuspend(stage = XmppErrorStage.Connect, recoverable = true) {
             streamEngine.start().getOrThrow()
         }
 
     override suspend fun authenticate(jid: Jid, password: String): XmppResult<Unit> =
-        xmppResultOfSuspend {
+        xmppResultOfSuspend(stage = XmppErrorStage.Authentication, recoverable = true) {
             if (streamEngine.state != XmppStreamState.Ready) {
                 throw XmppResultException("Cannot authenticate before stream is ready.")
             }
@@ -55,7 +55,7 @@ public class DefaultKmpXmppClient(
         }
 
     override suspend fun sendStanza(rawXml: String): XmppResult<Unit> =
-        xmppResultOfSuspend {
+        xmppResultOfSuspend(stage = XmppErrorStage.Messaging, recoverable = true) {
             if (authenticatedJid == null) {
                 throw XmppResultException("Cannot send stanza before authentication.")
             }
@@ -67,7 +67,7 @@ public class DefaultKmpXmppClient(
         }
 
     override suspend fun disconnect(): XmppResult<Unit> =
-        xmppResultOfSuspend {
+        xmppResultOfSuspend(stage = XmppErrorStage.Disconnect, recoverable = true) {
             streamEngine.stop().flatMap {
                 authenticatedJid = null
                 XmppResult.Success(Unit)

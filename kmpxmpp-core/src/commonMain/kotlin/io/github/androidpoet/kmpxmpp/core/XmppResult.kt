@@ -123,6 +123,25 @@ public inline fun <T, R> XmppResult<T>.flatMap(transform: (T) -> XmppResult<R>):
     is XmppResult.Failure -> this
 }
 
+public inline fun <T> XmppResult<T>.mapError(transform: (XmppError) -> XmppError): XmppResult<T> = when (this) {
+    is XmppResult.Success -> this
+    is XmppResult.Failure -> XmppResult.Failure(transform(error))
+}
+
+public inline fun <T> XmppResult<T>.onSuccess(block: (T) -> Unit): XmppResult<T> {
+    if (this is XmppResult.Success) {
+        block(value)
+    }
+    return this
+}
+
+public inline fun <T> XmppResult<T>.onFailure(block: (XmppError) -> Unit): XmppResult<T> {
+    if (this is XmppResult.Failure) {
+        block(error)
+    }
+    return this
+}
+
 public inline fun <T> XmppResult<T>.recover(transform: (XmppError) -> T): XmppResult<T> = when (this) {
     is XmppResult.Success -> this
     is XmppResult.Failure -> XmppResult.Success(transform(error))
@@ -161,25 +180,37 @@ public fun <T> XmppResult<T>.getOrThrow(): T = when (this) {
     is XmppResult.Failure -> throw XmppResultException(error.message, error.cause)
 }
 
-public inline fun <T> xmppResultOf(block: () -> T): XmppResult<T> =
+public inline fun <T> xmppResultOf(
+    stage: XmppErrorStage = XmppErrorStage.Unknown,
+    recoverable: Boolean = false,
+    block: () -> T,
+): XmppResult<T> =
     try {
         XmppResult.Success(block())
     } catch (throwable: Throwable) {
         XmppResult.Failure(
             xmppErrorUnknown(
                 message = throwable.message ?: "Unexpected failure",
+                stage = stage,
+                recoverable = recoverable,
                 cause = throwable,
             ),
         )
     }
 
-public suspend inline fun <T> xmppResultOfSuspend(crossinline block: suspend () -> T): XmppResult<T> =
+public suspend inline fun <T> xmppResultOfSuspend(
+    stage: XmppErrorStage = XmppErrorStage.Unknown,
+    recoverable: Boolean = false,
+    crossinline block: suspend () -> T,
+): XmppResult<T> =
     try {
         XmppResult.Success(block())
     } catch (throwable: Throwable) {
         XmppResult.Failure(
             xmppErrorUnknown(
                 message = throwable.message ?: "Unexpected failure",
+                stage = stage,
+                recoverable = recoverable,
                 cause = throwable,
             ),
         )
