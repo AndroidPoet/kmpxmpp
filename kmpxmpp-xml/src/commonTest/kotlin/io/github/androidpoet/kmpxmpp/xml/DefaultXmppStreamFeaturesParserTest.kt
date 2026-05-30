@@ -1,6 +1,8 @@
 package io.github.androidpoet.kmpxmpp.xml
 
 import io.github.androidpoet.kmpxmpp.core.XmppResult
+import io.github.androidpoet.kmpxmpp.core.XmppErrorCode
+import io.github.androidpoet.kmpxmpp.core.XmppErrorStage
 import io.github.androidpoet.kmpxmpp.sasl.SaslMechanism
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -47,5 +49,7 @@ class DefaultXmppStreamFeaturesParserTest {
 
         assertIs<XmppResult.Failure>(result)
         assertEquals("Missing <stream:features> root element.", result.error.message)
+        assertEquals(XmppErrorCode.ParsingFailed, result.error.code)
+        assertEquals(XmppErrorStage.StreamNegotiation, result.error.stage)
     }
 }

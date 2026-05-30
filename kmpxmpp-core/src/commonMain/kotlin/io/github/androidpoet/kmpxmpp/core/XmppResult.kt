@@ -5,8 +5,31 @@ public sealed interface XmppResult<out T> {
     public data class Failure(val error: XmppError) : XmppResult<Nothing>
 }
 
+public enum class XmppErrorCode {
+    Unknown,
+    InvalidState,
+    InvalidInput,
+    SecurityPolicyViolation,
+    AuthenticationFailed,
+    TransportFailure,
+    ParsingFailed,
+}
+
+public enum class XmppErrorStage {
+    Unknown,
+    Connect,
+    StreamNegotiation,
+    Tls,
+    Authentication,
+    Messaging,
+    Disconnect,
+}
+
 public data class XmppError(
     val message: String,
+    val code: XmppErrorCode = XmppErrorCode.Unknown,
+    val stage: XmppErrorStage = XmppErrorStage.Unknown,
+    val recoverable: Boolean = false,
     val cause: Throwable? = null,
 )
 
@@ -65,6 +88,9 @@ public inline fun <T> xmppResultOf(block: () -> T): XmppResult<T> =
         XmppResult.Failure(
             XmppError(
                 message = throwable.message ?: "Unexpected failure",
+                code = XmppErrorCode.Unknown,
+                stage = XmppErrorStage.Unknown,
+                recoverable = false,
                 cause = throwable,
             ),
         )
@@ -77,6 +103,9 @@ public suspend inline fun <T> xmppResultOfSuspend(crossinline block: suspend () 
         XmppResult.Failure(
             XmppError(
                 message = throwable.message ?: "Unexpected failure",
+                code = XmppErrorCode.Unknown,
+                stage = XmppErrorStage.Unknown,
+                recoverable = false,
                 cause = throwable,
             ),
         )

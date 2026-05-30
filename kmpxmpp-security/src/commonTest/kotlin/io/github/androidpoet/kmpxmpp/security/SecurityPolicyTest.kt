@@ -1,6 +1,8 @@
 package io.github.androidpoet.kmpxmpp.security
 
 import io.github.androidpoet.kmpxmpp.core.XmppResult
+import io.github.androidpoet.kmpxmpp.core.XmppErrorCode
+import io.github.androidpoet.kmpxmpp.core.XmppErrorStage
 import io.github.androidpoet.kmpxmpp.sasl.SaslMechanism
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -15,6 +17,8 @@ class SecurityPolicyTest {
 
         assertIs<XmppResult.Failure>(result)
         assertEquals("TLS is required by policy but not active.", result.error.message)
+        assertEquals(XmppErrorCode.SecurityPolicyViolation, result.error.code)
+        assertEquals(XmppErrorStage.Tls, result.error.stage)
     }
 
     @Test

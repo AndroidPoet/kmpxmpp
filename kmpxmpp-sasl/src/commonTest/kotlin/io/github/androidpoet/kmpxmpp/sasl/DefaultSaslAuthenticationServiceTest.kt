@@ -1,6 +1,8 @@
 package io.github.androidpoet.kmpxmpp.sasl
 
 import io.github.androidpoet.kmpxmpp.core.Jid
+import io.github.androidpoet.kmpxmpp.core.XmppErrorCode
+import io.github.androidpoet.kmpxmpp.core.XmppErrorStage
 import io.github.androidpoet.kmpxmpp.core.XmppResult
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -34,6 +36,9 @@ class DefaultSaslAuthenticationServiceTest {
 
         assertIs<XmppResult.Failure>(result)
         assertEquals("SASL PLAIN requires TLS.", result.error.message)
+        assertEquals(XmppErrorCode.SecurityPolicyViolation, result.error.code)
+        assertEquals(XmppErrorStage.Authentication, result.error.stage)
+        assertEquals(true, result.error.recoverable)
     }
 
     @Test
@@ -47,5 +52,8 @@ class DefaultSaslAuthenticationServiceTest {
 
         assertIs<XmppResult.Failure>(result)
         assertEquals("No compatible SASL mechanism found with server.", result.error.message)
+        assertEquals(XmppErrorCode.AuthenticationFailed, result.error.code)
+        assertEquals(XmppErrorStage.Authentication, result.error.stage)
+        assertEquals(true, result.error.recoverable)
     }
 }
