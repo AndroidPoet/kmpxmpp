@@ -2,7 +2,6 @@ package io.github.androidpoet.kmpxmpp.stream
 
 import io.github.androidpoet.kmpxmpp.core.XmppError
 import io.github.androidpoet.kmpxmpp.core.XmppResult
-import io.github.androidpoet.kmpxmpp.sasl.SaslMechanism
 import io.github.androidpoet.kmpxmpp.security.SecurityPolicy
 import io.github.androidpoet.kmpxmpp.security.TlsMode
 import io.github.androidpoet.kmpxmpp.transport.XmppTransport
@@ -20,6 +19,7 @@ class XmppSessionOrchestratorTest {
                 tlsInitiallyActive = true,
             ),
             transport = FakeTransport(),
+            featuresXmlProvider = { validFeaturesXml() },
         )
 
         val result = orchestrator.start()
@@ -33,6 +33,7 @@ class XmppSessionOrchestratorTest {
         val orchestrator = XmppSessionOrchestrator(
             config = XmppSessionConfig(host = "chat.example.com"),
             transport = FakeTransport(connectResult = XmppResult.Failure(XmppError("connect-failed"))),
+            featuresXmlProvider = { validFeaturesXml() },
         )
 
         val result = orchestrator.start()
@@ -43,18 +44,32 @@ class XmppSessionOrchestratorTest {
     }
 
     @Test
+    fun test_orchestrator_start_whenFeaturesInvalid_returnsFailure() = runTest {
+        val orchestrator = XmppSessionOrchestrator(
+            config = XmppSessionConfig(host = "chat.example.com"),
+            transport = FakeTransport(),
+            featuresXmlProvider = { "<bad/>" },
+        )
+
+        val result = orchestrator.start()
+
+        assertIs<XmppResult.Failure>(result)
+        assertEquals("Missing <stream:features> root element.", result.error.message)
+    }
+
+    @Test
     fun test_orchestrator_start_whenPlainWithoutTlsPolicyBlocked_returnsFailure() = runTest {
         val orchestrator = XmppSessionOrchestrator(
             config = XmppSessionConfig(
                 host = "chat.example.com",
                 tlsInitiallyActive = false,
-                mechanism = SaslMechanism.Plain,
                 securityPolicy = SecurityPolicy(
                     tlsMode = TlsMode.Disabled,
                     allowPlainAuthWithoutTls = false,
                 ),
             ),
             transport = FakeTransport(),
+            featuresXmlProvider = { plainOnlyFeaturesXml() },
         )
 
         val result = orchestrator.start()
@@ -70,6 +85,7 @@ class XmppSessionOrchestratorTest {
         val orchestrator = XmppSessionOrchestrator(
             config = XmppSessionConfig(host = "chat.example.com", tlsInitiallyActive = true),
             transport = transport,
+            featuresXmlProvider = { validFeaturesXml() },
         )
         orchestrator.start()
 
@@ -78,6 +94,23 @@ class XmppSessionOrchestratorTest {
         assertIs<XmppResult.Success<Unit>>(result)
         assertEquals(XmppStreamState.Disconnected, orchestrator.state)
     }
+
+    private fun validFeaturesXml(): String = """
+        <stream:features>
+          <mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'>
+            <mechanism>SCRAM-SHA-256</mechanism>
+            <mechanism>PLAIN</mechanism>
+          </mechanisms>
+        </stream:features>
+    """.trimIndent()
+
+    private fun plainOnlyFeaturesXml(): String = """
+        <stream:features>
+          <mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'>
+            <mechanism>PLAIN</mechanism>
+          </mechanisms>
+        </stream:features>
+    """.trimIndent()
 }
 
 private class FakeTransport(
