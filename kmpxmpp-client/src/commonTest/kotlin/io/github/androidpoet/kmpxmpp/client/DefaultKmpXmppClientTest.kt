@@ -1,0 +1,123 @@
+package io.github.androidpoet.kmpxmpp.client
+
+import io.github.androidpoet.kmpxmpp.core.Jid
+import io.github.androidpoet.kmpxmpp.core.XmppError
+import io.github.androidpoet.kmpxmpp.core.XmppResult
+import io.github.androidpoet.kmpxmpp.stream.XmppStreamEngine
+import io.github.androidpoet.kmpxmpp.stream.XmppStreamState
+import io.github.androidpoet.kmpxmpp.transport.XmppTransport
+import kotlinx.coroutines.test.runTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
+
+class DefaultKmpXmppClientTest {
+    @Test
+    fun test_client_connect_whenStreamStarts_returnsSuccess() = runTest {
+        val client = DefaultKmpXmppClient(
+            streamEngine = FakeStreamEngine(startResult = XmppResult.Success(Unit), stateAfterStart = XmppStreamState.Ready),
+            transport = FakeTransport(),
+        )
+
+        val result = client.connect()
+
+        assertIs<XmppResult.Success<Unit>>(result)
+    }
+
+    @Test
+    fun test_client_authenticate_whenNotReady_returnsFailure() = runTest {
+        val stream = FakeStreamEngine(
+            startResult = XmppResult.Success(Unit),
+            stateAfterStart = XmppStreamState.Connected,
+        )
+        val client = DefaultKmpXmppClient(streamEngine = stream, transport = FakeTransport())
+
+        val result = client.authenticate(Jid("alice", "example.com"), "secret")
+
+        assertIs<XmppResult.Failure>(result)
+        assertEquals("Cannot authenticate before stream is ready.", result.error.message)
+    }
+
+    @Test
+    fun test_client_sendStanza_whenNotAuthenticated_returnsFailure() = runTest {
+        val client = DefaultKmpXmppClient(
+            streamEngine = FakeStreamEngine(startResult = XmppResult.Success(Unit), stateAfterStart = XmppStreamState.Ready),
+            transport = FakeTransport(),
+        )
+
+        val result = client.sendStanza("<message/>")
+
+        assertIs<XmppResult.Failure>(result)
+        assertEquals("Cannot send stanza before authentication.", result.error.message)
+    }
+
+    @Test
+    fun test_client_sendStanza_whenAuthenticated_propagatesTransportResult() = runTest {
+        val stream = FakeStreamEngine(
+            startResult = XmppResult.Success(Unit),
+            stateAfterStart = XmppStreamState.Ready,
+        )
+        val transport = FakeTransport(writeResult = XmppResult.Failure(XmppError("write-failed")))
+        val client = DefaultKmpXmppClient(streamEngine = stream, transport = transport)
+
+        client.connect()
+        client.authenticate(Jid("alice", "example.com"), "secret")
+        val result = client.sendStanza("<message/>")
+
+        assertIs<XmppResult.Failure>(result)
+        assertEquals("write-failed", result.error.message)
+    }
+
+    @Test
+    fun test_client_disconnect_whenCalled_clearsSessionAndReturnsSuccess() = runTest {
+        val stream = FakeStreamEngine(
+            startResult = XmppResult.Success(Unit),
+            stopResult = XmppResult.Success(Unit),
+            stateAfterStart = XmppStreamState.Ready,
+        )
+        val client = DefaultKmpXmppClient(streamEngine = stream, transport = FakeTransport())
+
+        client.connect()
+        client.authenticate(Jid("alice", "example.com"), "secret")
+        val disconnectResult = client.disconnect()
+        val sendAfterDisconnect = client.sendStanza("<message/>")
+
+        assertIs<XmppResult.Success<Unit>>(disconnectResult)
+        assertIs<XmppResult.Failure>(sendAfterDisconnect)
+        assertEquals("Cannot send stanza before authentication.", sendAfterDisconnect.error.message)
+    }
+}
+
+private class FakeStreamEngine(
+    private val startResult: XmppResult<Unit>,
+    private val stopResult: XmppResult<Unit> = XmppResult.Success(Unit),
+    private val stateAfterStart: XmppStreamState,
+) : XmppStreamEngine {
+    override var state: XmppStreamState = XmppStreamState.Disconnected
+
+    override suspend fun start(): XmppResult<Unit> {
+        if (startResult is XmppResult.Success) {
+            state = stateAfterStart
+        }
+        return startResult
+    }
+
+    override suspend fun stop(): XmppResult<Unit> {
+        if (stopResult is XmppResult.Success) {
+            state = XmppStreamState.Disconnected
+        }
+        return stopResult
+    }
+}
+
+private class FakeTransport(
+    private val writeResult: XmppResult<Unit> = XmppResult.Success(Unit),
+) : XmppTransport {
+    override suspend fun connect(host: String, port: Int): XmppResult<Unit> = XmppResult.Success(Unit)
+
+    override suspend fun write(data: String): XmppResult<Unit> = writeResult
+
+    override suspend fun read(): XmppResult<String> = XmppResult.Success("<ok/>")
+
+    override suspend fun close(): XmppResult<Unit> = XmppResult.Success(Unit)
+}
