@@ -1,0 +1,3 @@
+package io.github.androidpoet.kmpxmpp.modules.kmpxmpp_xep_0085_chat_states
+
+public object KmpxmppXep0085ChatStatesModule

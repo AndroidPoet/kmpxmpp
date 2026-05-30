@@ -1,0 +1,3 @@
+package io.github.androidpoet.kmpxmpp.modules.kmpxmpp_xep_0264_thumbnails
+
+public object KmpxmppXep0264ThumbnailsModule

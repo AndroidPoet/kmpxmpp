@@ -1,0 +1,3 @@
+package io.github.androidpoet.kmpxmpp.modules.kmpxmpp_xep_0191_blocking
+
+public object KmpxmppXep0191BlockingModule

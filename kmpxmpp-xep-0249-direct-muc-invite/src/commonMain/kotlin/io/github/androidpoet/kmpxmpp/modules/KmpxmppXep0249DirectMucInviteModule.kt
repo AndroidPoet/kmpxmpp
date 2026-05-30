@@ -1,0 +1,3 @@
+package io.github.androidpoet.kmpxmpp.modules.kmpxmpp_xep_0249_direct_muc_invite
+
+public object KmpxmppXep0249DirectMucInviteModule

@@ -1,0 +1,3 @@
+package io.github.androidpoet.kmpxmpp.modules.kmpxmpp_xep_0280_carbons
+
+public object KmpxmppXep0280CarbonsModule
