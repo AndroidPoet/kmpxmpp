@@ -1,9 +1,9 @@
 package io.github.androidpoet.kmpxmpp.stream
 
-import io.github.androidpoet.kmpxmpp.core.KmpXmppResult
+import io.github.androidpoet.kmpxmpp.core.XmppResult
 
 public interface XmppStreamEngine {
     public val state: XmppStreamState
-    public suspend fun start(): KmpXmppResult<Unit>
-    public suspend fun stop(): KmpXmppResult<Unit>
+    public suspend fun start(): XmppResult<Unit>
+    public suspend fun stop(): XmppResult<Unit>
 }
