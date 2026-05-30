@@ -1,3 +1,0 @@
-package io.github.androidpoet.kmpxmpp.modules.kmpxmpp_omemo_persistence_sqlite
-
-public object KmpxmppOmemoPersistenceSqliteModule

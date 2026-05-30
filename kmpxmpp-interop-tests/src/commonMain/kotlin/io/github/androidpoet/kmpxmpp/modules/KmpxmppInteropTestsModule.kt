@@ -1,3 +1,0 @@
-package io.github.androidpoet.kmpxmpp.modules.kmpxmpp_interop_tests
-
-public object KmpxmppInteropTestsModule
