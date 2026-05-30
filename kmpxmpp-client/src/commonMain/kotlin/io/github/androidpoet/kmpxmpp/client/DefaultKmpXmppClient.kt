@@ -11,11 +11,14 @@ import io.github.androidpoet.kmpxmpp.core.XmppRetryPolicy
 import io.github.androidpoet.kmpxmpp.core.xmppResultOfSuspend
 import io.github.androidpoet.kmpxmpp.sasl.DefaultSaslAuthenticationService
 import io.github.androidpoet.kmpxmpp.sasl.SaslAuthenticationService
+import io.github.androidpoet.kmpxmpp.sasl.SaslMechanism
 import io.github.androidpoet.kmpxmpp.security.SecurityPolicy
 import io.github.androidpoet.kmpxmpp.security.validateAuthMechanism
 import io.github.androidpoet.kmpxmpp.stream.XmppStreamEngine
 import io.github.androidpoet.kmpxmpp.stream.XmppStreamState
 import io.github.androidpoet.kmpxmpp.transport.XmppTransport
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 public class DefaultKmpXmppClient(
     private val streamEngine: XmppStreamEngine,
@@ -34,6 +37,7 @@ public class DefaultKmpXmppClient(
             }
         }
 
+    @OptIn(ExperimentalEncodingApi::class)
     override suspend fun authenticate(jid: Jid, password: String): XmppResult<Unit> =
         xmppResultOfSuspend(stage = XmppErrorStage.Authentication, recoverable = true) {
             if (streamEngine.state != XmppStreamState.Ready) {
@@ -43,21 +47,61 @@ public class DefaultKmpXmppClient(
             val context = streamEngine.sessionContext
                 ?: throw XmppResultException("Missing stream session context.")
 
-            saslAuthenticationService.authenticate(
+            val selectedMechanism = saslAuthenticationService.authenticate(
                 jid = jid,
                 password = password,
                 tlsActive = context.tlsActive,
                 serverMechanisms = context.serverMechanisms,
-            ).flatMap { selectedMechanism ->
-                securityPolicy.validateAuthMechanism(
-                    mechanism = selectedMechanism,
-                    tlsActive = context.tlsActive,
-                )
-            }.flatMap {
-                authenticatedJid = jid
-                XmppResult.Success(Unit)
-            }.getOrThrow()
+            ).getOrThrow()
+
+            securityPolicy.validateAuthMechanism(
+                mechanism = selectedMechanism,
+                tlsActive = context.tlsActive,
+            ).getOrThrow()
+
+            val authXml = buildSaslAuthXml(
+                mechanism = selectedMechanism,
+                jid = jid,
+                password = password,
+            )
+            transport.write(authXml).getOrThrow()
+
+            val authServerReply = transport.read().getOrThrow()
+            if (!authServerReply.contains("<success", ignoreCase = true)) {
+                throw XmppResultException("SASL authentication rejected by server.")
+            }
+
+            transport.write(buildBindRequestXml()).getOrThrow()
+            val bindReply = transport.read().getOrThrow()
+            if (!bindReply.contains("type='result'", ignoreCase = true) &&
+                !bindReply.contains("type=\"result\"", ignoreCase = true)
+            ) {
+                throw XmppResultException("Resource bind rejected by server.")
+            }
+
+            authenticatedJid = jid
         }
+
+    @OptIn(ExperimentalEncodingApi::class)
+    private fun buildSaslAuthXml(
+        mechanism: SaslMechanism,
+        jid: Jid,
+        password: String,
+    ): String = when (mechanism) {
+        SaslMechanism.Plain -> {
+            val authzid = ""
+            val authcid = jid.local ?: jid.domain
+            val raw = "$authzid\u0000$authcid\u0000$password"
+            val encoded = Base64.encode(raw.encodeToByteArray())
+            "<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='PLAIN'>$encoded</auth>\n"
+        }
+        SaslMechanism.ScramSha1,
+        SaslMechanism.ScramSha256,
+        -> throw XmppResultException("SASL $mechanism wire exchange is not implemented yet.")
+    }
+
+    private fun buildBindRequestXml(): String =
+        "<iq type='set' id='bind-1'><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'><resource>kmpxmpp</resource></bind></iq>\n"
 
     override suspend fun sendStanza(rawXml: String): XmppResult<Unit> =
         xmppResultOfSuspend(stage = XmppErrorStage.Messaging, recoverable = true) {

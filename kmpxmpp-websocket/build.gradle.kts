@@ -26,6 +26,8 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            api(project(":kmpxmpp-core"))
+            api(project(":kmpxmpp-transport"))
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
         }

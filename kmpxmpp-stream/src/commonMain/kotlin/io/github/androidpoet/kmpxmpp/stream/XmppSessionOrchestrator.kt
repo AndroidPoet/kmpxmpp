@@ -4,8 +4,8 @@ import io.github.androidpoet.kmpxmpp.core.XmppResult
 import io.github.androidpoet.kmpxmpp.core.XmppErrorStage
 import io.github.androidpoet.kmpxmpp.core.flatMap
 import io.github.androidpoet.kmpxmpp.core.getOrThrow
+import io.github.androidpoet.kmpxmpp.core.xmppErrorParsing
 import io.github.androidpoet.kmpxmpp.core.xmppErrorInvalidState
-import io.github.androidpoet.kmpxmpp.core.xmppResultOf
 import io.github.androidpoet.kmpxmpp.core.xmppResultOfSuspend
 import io.github.androidpoet.kmpxmpp.security.TlsMode
 import io.github.androidpoet.kmpxmpp.security.validateAuthMechanism
@@ -17,9 +17,10 @@ import io.github.androidpoet.kmpxmpp.xml.XmppStreamFeaturesParser
 public class XmppSessionOrchestrator(
     private val config: XmppSessionConfig,
     private val transport: XmppTransport,
-    private val featuresXmlProvider: () -> String,
     private val featuresParser: XmppStreamFeaturesParser = DefaultXmppStreamFeaturesParser(),
 ) : XmppStreamEngine {
+    private val streamFeaturesStartTag: String = "<stream:features"
+    private val streamFeaturesEndTag: String = "</stream:features>"
 
     override var state: XmppStreamState = XmppStreamState.Disconnected
         private set
@@ -33,13 +34,18 @@ public class XmppSessionOrchestrator(
 
             transport.connect(config.host, config.port)
                 .flatMap {
-                    transitionTo(XmppStreamState.Connected)
-                        .flatMap { transitionTo(XmppStreamState.StreamOpened) }
-                        .flatMap { transitionTo(XmppStreamState.FeaturesReceived) }
+                    transitionTo(XmppStreamState.Connected).flatMap {
+                        sendStreamOpen().flatMap { transitionTo(XmppStreamState.StreamOpened) }
+                    }
                 }
                 .flatMap {
-                    xmppResultOf(stage = XmppErrorStage.StreamNegotiation, recoverable = true) { featuresXmlProvider() }
-                        .flatMap { featuresXml -> featuresParser.parse(featuresXml) }
+                    readStreamFeatures().flatMap { featuresXml ->
+                        featuresParser.parse(featuresXml)
+                    }.flatMap { parsed ->
+                        transitionTo(XmppStreamState.FeaturesReceived).flatMap {
+                            XmppResult.Success(parsed)
+                        }
+                    }
                 }
                 .flatMap { parsedFeatures ->
                     sessionContext = XmppSessionContext(
@@ -66,6 +72,55 @@ public class XmppSessionOrchestrator(
                 }
                 .getOrThrow()
         }
+
+    private suspend fun sendStreamOpen(): XmppResult<Unit> {
+        val streamOpen = buildString {
+            append("<?xml version='1.0'?>")
+            append("<stream:stream to='")
+            append(config.host)
+            append("' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' version='1.0'>\n")
+        }
+        return transport.write(streamOpen)
+    }
+
+    private suspend fun readStreamFeatures(): XmppResult<String> {
+        val rawBuilder = StringBuilder()
+
+        repeat(6) {
+            when (val readResult = transport.read()) {
+                is XmppResult.Success -> {
+                    rawBuilder.append(readResult.value)
+                    extractFeaturesXml(rawBuilder.toString())?.let { featuresXml ->
+                        return XmppResult.Success(featuresXml)
+                    }
+                }
+                is XmppResult.Failure -> return readResult
+            }
+        }
+
+        return XmppResult.Failure(
+            xmppErrorParsing(
+                message = "Unable to extract <stream:features> from server response.",
+                stage = XmppErrorStage.StreamNegotiation,
+                recoverable = true,
+            ),
+        )
+    }
+
+    private fun extractFeaturesXml(raw: String): String? {
+        val startIndex = raw.indexOf(streamFeaturesStartTag)
+        if (startIndex == -1) {
+            return null
+        }
+
+        val endIndex = raw.indexOf(streamFeaturesEndTag, startIndex)
+        if (endIndex == -1) {
+            return null
+        }
+
+        val endExclusive = endIndex + streamFeaturesEndTag.length
+        return raw.substring(startIndex, endExclusive)
+    }
 
     override suspend fun stop(): XmppResult<Unit> =
         xmppResultOfSuspend(stage = XmppErrorStage.Disconnect, recoverable = true) {

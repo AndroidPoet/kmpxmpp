@@ -145,6 +145,62 @@ class DefaultKmpXmppClientTest {
     }
 
     @Test
+    fun test_client_authenticate_whenServerRejectsSasl_returnsFailure() = runTest {
+        val stream = FakeStreamEngine(
+            startResult = XmppResult.Success(Unit),
+            stateAfterStart = XmppStreamState.Ready,
+            contextAfterStart = XmppSessionContext(
+                tlsActive = true,
+                serverMechanisms = setOf(SaslMechanism.Plain),
+            ),
+        )
+        val transport = FakeTransport(
+            readResults = listOf(
+                XmppResult.Success("<failure xmlns='urn:ietf:params:xml:ns:xmpp-sasl'/>"),
+            ),
+        )
+        val client = DefaultKmpXmppClient(
+            streamEngine = stream,
+            transport = transport,
+            saslAuthenticationService = FakeAuthService(XmppResult.Success(SaslMechanism.Plain)),
+        )
+
+        client.connect()
+        val result = client.authenticate(Jid("alice", "example.com"), "secret")
+
+        assertIs<XmppResult.Failure>(result)
+        assertEquals("SASL authentication rejected by server.", result.error.message)
+    }
+
+    @Test
+    fun test_client_authenticate_whenServerAcceptsSaslAndBind_returnsSuccess() = runTest {
+        val stream = FakeStreamEngine(
+            startResult = XmppResult.Success(Unit),
+            stateAfterStart = XmppStreamState.Ready,
+            contextAfterStart = XmppSessionContext(
+                tlsActive = true,
+                serverMechanisms = setOf(SaslMechanism.Plain),
+            ),
+        )
+        val transport = FakeTransport(
+            readResults = listOf(
+                XmppResult.Success("<success xmlns='urn:ietf:params:xml:ns:xmpp-sasl'/>"),
+                XmppResult.Success("<iq type='result' id='bind-1'><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'/></iq>"),
+            ),
+        )
+        val client = DefaultKmpXmppClient(
+            streamEngine = stream,
+            transport = transport,
+            saslAuthenticationService = FakeAuthService(XmppResult.Success(SaslMechanism.Plain)),
+        )
+
+        client.connect()
+        val result = client.authenticate(Jid("alice", "example.com"), "secret")
+
+        assertIs<XmppResult.Success<Unit>>(result)
+    }
+
+    @Test
     fun test_client_sendStanza_whenNotAuthenticated_returnsFailure() = runTest {
         val client = DefaultKmpXmppClient(
             streamEngine = FakeStreamEngine(startResult = XmppResult.Success(Unit), stateAfterStart = XmppStreamState.Ready),
@@ -163,11 +219,17 @@ class DefaultKmpXmppClientTest {
             startResult = XmppResult.Success(Unit),
             stateAfterStart = XmppStreamState.Ready,
         )
-        val transport = FakeTransport(writeResult = XmppResult.Failure(XmppError("write-failed")))
+        val transport = FakeTransport(
+            writeResults = listOf(
+                XmppResult.Success(Unit), // SASL auth write
+                XmppResult.Success(Unit), // bind write
+                XmppResult.Failure(XmppError("write-failed")), // message write
+            ),
+        )
         val client = DefaultKmpXmppClient(
             streamEngine = stream,
             transport = transport,
-            saslAuthenticationService = FakeAuthService(XmppResult.Success(SaslMechanism.ScramSha256)),
+            saslAuthenticationService = FakeAuthService(XmppResult.Success(SaslMechanism.Plain)),
         )
 
         client.connect()
@@ -187,7 +249,7 @@ class DefaultKmpXmppClientTest {
         val client = DefaultKmpXmppClient(
             streamEngine = stream,
             transport = ThrowingTransport(),
-            saslAuthenticationService = FakeAuthService(XmppResult.Success(SaslMechanism.ScramSha256)),
+            saslAuthenticationService = FakeAuthService(XmppResult.Success(SaslMechanism.Plain)),
         )
 
         client.connect()
@@ -208,7 +270,7 @@ class DefaultKmpXmppClientTest {
         val client = DefaultKmpXmppClient(
             streamEngine = stream,
             transport = FakeTransport(),
-            saslAuthenticationService = FakeAuthService(XmppResult.Success(SaslMechanism.ScramSha256)),
+            saslAuthenticationService = FakeAuthService(XmppResult.Success(SaslMechanism.Plain)),
         )
 
         client.connect()
@@ -299,23 +361,52 @@ private class FlakyStreamEngine(
 }
 
 private class FakeTransport(
-    private val writeResult: XmppResult<Unit> = XmppResult.Success(Unit),
+    private val writeResults: List<XmppResult<Unit>> = listOf(XmppResult.Success(Unit)),
+    private val readResults: List<XmppResult<String>> = listOf(
+        XmppResult.Success("<success xmlns='urn:ietf:params:xml:ns:xmpp-sasl'/>"),
+        XmppResult.Success("<iq type='result' id='bind-1'><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'/></iq>"),
+    ),
 ) : XmppTransport {
+    private var writeIndex: Int = 0
+    private var readIndex: Int = 0
+
     override suspend fun connect(host: String, port: Int): XmppResult<Unit> = XmppResult.Success(Unit)
 
-    override suspend fun write(data: String): XmppResult<Unit> = writeResult
+    override suspend fun write(data: String): XmppResult<Unit> {
+        val result = writeResults.getOrNull(writeIndex) ?: writeResults.last()
+        writeIndex += 1
+        return result
+    }
 
-    override suspend fun read(): XmppResult<String> = XmppResult.Success("<ok/>")
+    override suspend fun read(): XmppResult<String> {
+        val result = readResults.getOrNull(readIndex) ?: readResults.last()
+        readIndex += 1
+        return result
+    }
 
     override suspend fun close(): XmppResult<Unit> = XmppResult.Success(Unit)
 }
 
 private class ThrowingTransport : XmppTransport {
+    private var readCalls: Int = 0
+
     override suspend fun connect(host: String, port: Int): XmppResult<Unit> = XmppResult.Success(Unit)
 
-    override suspend fun write(data: String): XmppResult<Unit> = error("transport-write-crash")
+    override suspend fun write(data: String): XmppResult<Unit> {
+        if (data.contains("<message")) {
+            error("transport-write-crash")
+        }
+        return XmppResult.Success(Unit)
+    }
 
-    override suspend fun read(): XmppResult<String> = XmppResult.Success("<ok/>")
+    override suspend fun read(): XmppResult<String> {
+        readCalls += 1
+        return if (readCalls == 1) {
+            XmppResult.Success("<success xmlns='urn:ietf:params:xml:ns:xmpp-sasl'/>")
+        } else {
+            XmppResult.Success("<iq type='result' id='bind-1'><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'/></iq>")
+        }
+    }
 
     override suspend fun close(): XmppResult<Unit> = XmppResult.Success(Unit)
 }
