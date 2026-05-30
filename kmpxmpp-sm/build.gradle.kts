@@ -26,6 +26,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            api(project(":kmpxmpp-core"))
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
         }
@@ -37,7 +38,7 @@ kotlin {
 }
 
 android {
-    namespace = "io.github.androidpoet.kmpxmpp.modules.kmpxmpp_sm"
+    namespace = "io.github.androidpoet.kmpxmpp.sm"
     compileSdk = Configuration.COMPILE_SDK
     defaultConfig { minSdk = Configuration.MIN_SDK }
 }
