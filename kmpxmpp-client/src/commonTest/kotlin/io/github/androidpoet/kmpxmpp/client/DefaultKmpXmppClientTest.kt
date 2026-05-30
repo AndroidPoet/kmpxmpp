@@ -81,6 +81,25 @@ class DefaultKmpXmppClientTest {
     }
 
     @Test
+    fun test_client_authenticate_whenAuthServiceThrows_returnsFailure() = runTest {
+        val stream = FakeStreamEngine(
+            startResult = XmppResult.Success(Unit),
+            stateAfterStart = XmppStreamState.Ready,
+        )
+        val client = DefaultKmpXmppClient(
+            streamEngine = stream,
+            transport = FakeTransport(),
+            saslAuthenticationService = ThrowingAuthService(),
+        )
+
+        client.connect()
+        val result = client.authenticate(Jid("alice", "example.com"), "secret")
+
+        assertIs<XmppResult.Failure>(result)
+        assertEquals("auth-service-crash", result.error.message)
+    }
+
+    @Test
     fun test_client_authenticate_whenPolicyRejectsMechanism_propagatesFailure() = runTest {
         val stream = FakeStreamEngine(
             startResult = XmppResult.Success(Unit),
@@ -144,6 +163,26 @@ class DefaultKmpXmppClientTest {
     }
 
     @Test
+    fun test_client_sendStanza_whenTransportThrows_returnsFailure() = runTest {
+        val stream = FakeStreamEngine(
+            startResult = XmppResult.Success(Unit),
+            stateAfterStart = XmppStreamState.Ready,
+        )
+        val client = DefaultKmpXmppClient(
+            streamEngine = stream,
+            transport = ThrowingTransport(),
+            saslAuthenticationService = FakeAuthService(XmppResult.Success(SaslMechanism.ScramSha256)),
+        )
+
+        client.connect()
+        client.authenticate(Jid("alice", "example.com"), "secret")
+        val result = client.sendStanza("<message/>")
+
+        assertIs<XmppResult.Failure>(result)
+        assertEquals("transport-write-crash", result.error.message)
+    }
+
+    @Test
     fun test_client_disconnect_whenCalled_clearsSessionAndReturnsSuccess() = runTest {
         val stream = FakeStreamEngine(
             startResult = XmppResult.Success(Unit),
@@ -176,6 +215,15 @@ private class FakeAuthService(
         tlsActive: Boolean,
         serverMechanisms: Set<SaslMechanism>,
     ): XmppResult<SaslMechanism> = result
+}
+
+private class ThrowingAuthService : SaslAuthenticationService {
+    override suspend fun authenticate(
+        jid: Jid,
+        password: String,
+        tlsActive: Boolean,
+        serverMechanisms: Set<SaslMechanism>,
+    ): XmppResult<SaslMechanism> = error("auth-service-crash")
 }
 
 private class FakeStreamEngine(
@@ -213,6 +261,16 @@ private class FakeTransport(
     override suspend fun connect(host: String, port: Int): XmppResult<Unit> = XmppResult.Success(Unit)
 
     override suspend fun write(data: String): XmppResult<Unit> = writeResult
+
+    override suspend fun read(): XmppResult<String> = XmppResult.Success("<ok/>")
+
+    override suspend fun close(): XmppResult<Unit> = XmppResult.Success(Unit)
+}
+
+private class ThrowingTransport : XmppTransport {
+    override suspend fun connect(host: String, port: Int): XmppResult<Unit> = XmppResult.Success(Unit)
+
+    override suspend fun write(data: String): XmppResult<Unit> = error("transport-write-crash")
 
     override suspend fun read(): XmppResult<String> = XmppResult.Success("<ok/>")
 

@@ -1,5 +1,6 @@
 package io.github.androidpoet.kmpxmpp.core
 
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -88,6 +89,14 @@ class XmppResultTest {
         assertIs<XmppResult.Failure>(result)
         assertEquals("x", result.error.message)
         assertTrue(result.error.cause is IllegalStateException)
+    }
+
+    @Test
+    fun test_result_ofSuspend_whenBlockThrows_returnsFailure() = runTest {
+        val result = xmppResultOfSuspend { error("suspend-x") }
+
+        assertIs<XmppResult.Failure>(result)
+        assertEquals("suspend-x", result.error.message)
     }
 
     @Test

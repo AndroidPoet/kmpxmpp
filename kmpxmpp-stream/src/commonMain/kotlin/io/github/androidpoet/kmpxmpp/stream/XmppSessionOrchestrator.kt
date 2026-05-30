@@ -3,6 +3,9 @@ package io.github.androidpoet.kmpxmpp.stream
 import io.github.androidpoet.kmpxmpp.core.XmppError
 import io.github.androidpoet.kmpxmpp.core.XmppResult
 import io.github.androidpoet.kmpxmpp.core.flatMap
+import io.github.androidpoet.kmpxmpp.core.getOrThrow
+import io.github.androidpoet.kmpxmpp.core.xmppResultOf
+import io.github.androidpoet.kmpxmpp.core.xmppResultOfSuspend
 import io.github.androidpoet.kmpxmpp.security.TlsMode
 import io.github.androidpoet.kmpxmpp.security.validateAuthMechanism
 import io.github.androidpoet.kmpxmpp.security.validateTlsState
@@ -23,41 +26,48 @@ public class XmppSessionOrchestrator(
     override var sessionContext: XmppSessionContext? = null
         private set
 
-    override suspend fun start(): XmppResult<Unit> {
-        val tlsActiveAfterHandshake = config.tlsInitiallyActive || config.securityPolicy.tlsMode != TlsMode.Disabled
+    override suspend fun start(): XmppResult<Unit> =
+        xmppResultOfSuspend {
+            val tlsActiveAfterHandshake = config.tlsInitiallyActive || config.securityPolicy.tlsMode != TlsMode.Disabled
 
-        return transport.connect(config.host, config.port)
-            .flatMap {
-                transitionTo(XmppStreamState.Connected)
-                    .flatMap { transitionTo(XmppStreamState.StreamOpened) }
-                    .flatMap { transitionTo(XmppStreamState.FeaturesReceived) }
-            }
-            .flatMap { featuresParser.parse(featuresXmlProvider()) }
-            .flatMap { parsedFeatures ->
-                sessionContext = XmppSessionContext(
-                    tlsActive = tlsActiveAfterHandshake,
-                    serverMechanisms = parsedFeatures.mechanisms,
-                )
+            transport.connect(config.host, config.port)
+                .flatMap {
+                    transitionTo(XmppStreamState.Connected)
+                        .flatMap { transitionTo(XmppStreamState.StreamOpened) }
+                        .flatMap { transitionTo(XmppStreamState.FeaturesReceived) }
+                }
+                .flatMap {
+                    xmppResultOf { featuresXmlProvider() }
+                        .flatMap { featuresXml -> featuresParser.parse(featuresXml) }
+                }
+                .flatMap { parsedFeatures ->
+                    sessionContext = XmppSessionContext(
+                        tlsActive = tlsActiveAfterHandshake,
+                        serverMechanisms = parsedFeatures.mechanisms,
+                    )
 
-                config.securityPolicy.validateTlsState(tlsActiveAfterHandshake)
-                    .flatMap { transitionTo(XmppStreamState.TlsUpgraded) }
-                    .flatMap {
-                        val selected = parsedFeatures.mechanisms.firstOrNull()
-                            ?: return@flatMap XmppResult.Failure(
-                                XmppError("No server SASL mechanism available for authentication."),
-                            )
-                        config.securityPolicy.validateAuthMechanism(selected, tlsActiveAfterHandshake)
-                    }
-                    .flatMap { transitionTo(XmppStreamState.Authenticated) }
-                    .flatMap { transitionTo(XmppStreamState.Bound) }
-                    .flatMap { transitionTo(XmppStreamState.Ready) }
-            }
-    }
+                    config.securityPolicy.validateTlsState(tlsActiveAfterHandshake)
+                        .flatMap { transitionTo(XmppStreamState.TlsUpgraded) }
+                        .flatMap {
+                            val selected = parsedFeatures.mechanisms.firstOrNull()
+                                ?: return@flatMap XmppResult.Failure(
+                                    XmppError("No server SASL mechanism available for authentication."),
+                                )
+                            config.securityPolicy.validateAuthMechanism(selected, tlsActiveAfterHandshake)
+                        }
+                        .flatMap { transitionTo(XmppStreamState.Authenticated) }
+                        .flatMap { transitionTo(XmppStreamState.Bound) }
+                        .flatMap { transitionTo(XmppStreamState.Ready) }
+                }
+                .getOrThrow()
+        }
 
     override suspend fun stop(): XmppResult<Unit> =
-        transport.close().flatMap {
-            sessionContext = null
-            transitionTo(XmppStreamState.Disconnected)
+        xmppResultOfSuspend {
+            transport.close().flatMap {
+                sessionContext = null
+                transitionTo(XmppStreamState.Disconnected)
+            }.getOrThrow()
         }
 
     private fun transitionTo(next: XmppStreamState): XmppResult<Unit> {

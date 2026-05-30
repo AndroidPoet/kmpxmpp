@@ -58,6 +58,20 @@ class XmppSessionOrchestratorTest {
     }
 
     @Test
+    fun test_orchestrator_start_whenFeaturesProviderThrows_returnsFailure() = runTest {
+        val orchestrator = XmppSessionOrchestrator(
+            config = XmppSessionConfig(host = "chat.example.com"),
+            transport = FakeTransport(),
+            featuresXmlProvider = { error("features-provider-crash") },
+        )
+
+        val result = orchestrator.start()
+
+        assertIs<XmppResult.Failure>(result)
+        assertEquals("features-provider-crash", result.error.message)
+    }
+
+    @Test
     fun test_orchestrator_start_whenPlainWithoutTlsPolicyBlocked_returnsFailure() = runTest {
         val orchestrator = XmppSessionOrchestrator(
             config = XmppSessionConfig(

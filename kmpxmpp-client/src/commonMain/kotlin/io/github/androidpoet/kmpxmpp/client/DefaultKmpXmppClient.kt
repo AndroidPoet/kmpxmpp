@@ -3,7 +3,10 @@ package io.github.androidpoet.kmpxmpp.client
 import io.github.androidpoet.kmpxmpp.core.Jid
 import io.github.androidpoet.kmpxmpp.core.XmppError
 import io.github.androidpoet.kmpxmpp.core.XmppResult
+import io.github.androidpoet.kmpxmpp.core.XmppResultException
 import io.github.androidpoet.kmpxmpp.core.flatMap
+import io.github.androidpoet.kmpxmpp.core.getOrThrow
+import io.github.androidpoet.kmpxmpp.core.xmppResultOfSuspend
 import io.github.androidpoet.kmpxmpp.sasl.DefaultSaslAuthenticationService
 import io.github.androidpoet.kmpxmpp.sasl.SaslAuthenticationService
 import io.github.androidpoet.kmpxmpp.security.SecurityPolicy
@@ -21,46 +24,53 @@ public class DefaultKmpXmppClient(
 
     private var authenticatedJid: Jid? = null
 
-    override suspend fun connect(): XmppResult<Unit> = streamEngine.start()
-
-    override suspend fun authenticate(jid: Jid, password: String): XmppResult<Unit> {
-        if (streamEngine.state != XmppStreamState.Ready) {
-            return XmppResult.Failure(XmppError("Cannot authenticate before stream is ready."))
+    override suspend fun connect(): XmppResult<Unit> =
+        xmppResultOfSuspend {
+            streamEngine.start().getOrThrow()
         }
 
-        val context = streamEngine.sessionContext
-            ?: return XmppResult.Failure(XmppError("Missing stream session context."))
+    override suspend fun authenticate(jid: Jid, password: String): XmppResult<Unit> =
+        xmppResultOfSuspend {
+            if (streamEngine.state != XmppStreamState.Ready) {
+                throw XmppResultException("Cannot authenticate before stream is ready.")
+            }
 
-        return saslAuthenticationService.authenticate(
-            jid = jid,
-            password = password,
-            tlsActive = context.tlsActive,
-            serverMechanisms = context.serverMechanisms,
-        ).flatMap { selectedMechanism ->
-            securityPolicy.validateAuthMechanism(
-                mechanism = selectedMechanism,
+            val context = streamEngine.sessionContext
+                ?: throw XmppResultException("Missing stream session context.")
+
+            saslAuthenticationService.authenticate(
+                jid = jid,
+                password = password,
                 tlsActive = context.tlsActive,
-            )
-        }.flatMap {
-            authenticatedJid = jid
-            XmppResult.Success(Unit)
-        }
-    }
-
-    override suspend fun sendStanza(rawXml: String): XmppResult<Unit> {
-        if (authenticatedJid == null) {
-            return XmppResult.Failure(XmppError("Cannot send stanza before authentication."))
-        }
-        if (rawXml.isBlank()) {
-            return XmppResult.Failure(XmppError("Stanza payload cannot be blank."))
+                serverMechanisms = context.serverMechanisms,
+            ).flatMap { selectedMechanism ->
+                securityPolicy.validateAuthMechanism(
+                    mechanism = selectedMechanism,
+                    tlsActive = context.tlsActive,
+                )
+            }.flatMap {
+                authenticatedJid = jid
+                XmppResult.Success(Unit)
+            }.getOrThrow()
         }
 
-        return transport.write(rawXml)
-    }
+    override suspend fun sendStanza(rawXml: String): XmppResult<Unit> =
+        xmppResultOfSuspend {
+            if (authenticatedJid == null) {
+                throw XmppResultException("Cannot send stanza before authentication.")
+            }
+            if (rawXml.isBlank()) {
+                throw XmppResultException("Stanza payload cannot be blank.")
+            }
+
+            transport.write(rawXml).getOrThrow()
+        }
 
     override suspend fun disconnect(): XmppResult<Unit> =
-        streamEngine.stop().flatMap {
-            authenticatedJid = null
-            XmppResult.Success(Unit)
+        xmppResultOfSuspend {
+            streamEngine.stop().flatMap {
+                authenticatedJid = null
+                XmppResult.Success(Unit)
+            }.getOrThrow()
         }
 }

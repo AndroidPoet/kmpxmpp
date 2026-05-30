@@ -69,3 +69,15 @@ public inline fun <T> xmppResultOf(block: () -> T): XmppResult<T> =
             ),
         )
     }
+
+public suspend inline fun <T> xmppResultOfSuspend(crossinline block: suspend () -> T): XmppResult<T> =
+    try {
+        XmppResult.Success(block())
+    } catch (throwable: Throwable) {
+        XmppResult.Failure(
+            XmppError(
+                message = throwable.message ?: "Unexpected failure",
+                cause = throwable,
+            ),
+        )
+    }
