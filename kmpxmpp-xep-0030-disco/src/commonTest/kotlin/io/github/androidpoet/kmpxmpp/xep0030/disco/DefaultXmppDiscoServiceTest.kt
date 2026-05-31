@@ -42,6 +42,69 @@ class DefaultXmppDiscoServiceTest {
         assertEquals(XmppErrorCode.InvalidInput, result.error.code)
         assertEquals("Request id cannot be blank.", result.error.message)
     }
+
+    @Test
+    fun test_parseInfoResult_whenValidXml_returnsIdentitiesAndFeatures() {
+        val service = DefaultXmppDiscoService(FakeDiscoClient(sendResult = XmppResult.Success(Unit)))
+        val xml = """
+            <iq type='result' id='d1'>
+              <query xmlns='http://jabber.org/protocol/disco#info'>
+                <identity category='server' type='im' name='Example Server'/>
+                <feature var='urn:xmpp:ping'/>
+                <feature var='urn:xmpp:mam:2'/>
+              </query>
+            </iq>
+        """.trimIndent()
+
+        val parsed = service.parseInfoResult(xml)
+
+        assertIs<XmppResult.Success<DiscoInfoResult>>(parsed)
+        assertEquals(1, parsed.value.identities.size)
+        assertEquals("server", parsed.value.identities[0].category)
+        assertEquals(2, parsed.value.features.size)
+        assertEquals("urn:xmpp:ping", parsed.value.features[0])
+    }
+
+    @Test
+    fun test_parseItemsResult_whenValidXml_returnsItems() {
+        val service = DefaultXmppDiscoService(FakeDiscoClient(sendResult = XmppResult.Success(Unit)))
+        val xml = """
+            <iq type='result' id='d2'>
+              <query xmlns='http://jabber.org/protocol/disco#items'>
+                <item jid='room@conference.example.com' node='muc-room' name='Team Room'/>
+              </query>
+            </iq>
+        """.trimIndent()
+
+        val parsed = service.parseItemsResult(xml)
+
+        assertIs<XmppResult.Success<DiscoItemsResult>>(parsed)
+        assertEquals(1, parsed.value.items.size)
+        assertEquals("conference.example.com", parsed.value.items[0].jid?.domain)
+        assertEquals("muc-room", parsed.value.items[0].node)
+    }
+
+    @Test
+    fun test_validateDiscoRequest_whenValidInfoRequest_returnsRequestId() {
+        val service = DefaultXmppDiscoService(FakeDiscoClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<iq type='get' id='req-1'><query xmlns='http://jabber.org/protocol/disco#info'/></iq>"
+
+        val validated = service.validateDiscoRequest(xml, "http://jabber.org/protocol/disco#info")
+
+        assertIs<XmppResult.Success<String>>(validated)
+        assertEquals("req-1", validated.value)
+    }
+
+    @Test
+    fun test_validateDiscoRequest_whenWrongType_returnsFailure() {
+        val service = DefaultXmppDiscoService(FakeDiscoClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<iq type='set' id='req-1'><query xmlns='http://jabber.org/protocol/disco#info'/></iq>"
+
+        val validated = service.validateDiscoRequest(xml, "http://jabber.org/protocol/disco#info")
+
+        assertIs<XmppResult.Failure>(validated)
+        assertEquals("Disco request IQ must be type='get'.", validated.error.message)
+    }
 }
 
 private class FakeDiscoClient(

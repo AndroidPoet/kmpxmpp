@@ -29,6 +29,7 @@ kotlin {
             api(project(":kmpxmpp-core"))
             api(project(":kmpxmpp-client"))
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.serialization.json)
         }
         commonTest.dependencies {

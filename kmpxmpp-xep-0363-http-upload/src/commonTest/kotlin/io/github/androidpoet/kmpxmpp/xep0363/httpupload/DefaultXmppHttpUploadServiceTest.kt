@@ -45,6 +45,66 @@ class DefaultXmppHttpUploadServiceTest {
         assertIs<XmppResult.Failure>(result)
         assertEquals(XmppErrorCode.InvalidInput, result.error.code)
     }
+
+    @Test
+    fun test_parseUploadSlotResult_whenValidResult_returnsParsedSlot() {
+        val service = DefaultXmppHttpUploadService(FakeUploadClient(XmppResult.Success(Unit)))
+        val xml = """
+            <iq type='result' id='up-1'>
+              <slot xmlns='urn:xmpp:http:upload:0'>
+                <put url='https://upload.example.com/put/abc'>
+                  <header name='Authorization'>Bearer token</header>
+                </put>
+                <get url='https://cdn.example.com/get/abc'/>
+              </slot>
+            </iq>
+        """.trimIndent()
+
+        val parsed = service.parseUploadSlotResult(xml)
+
+        assertIs<XmppResult.Success<HttpUploadSlot>>(parsed)
+        assertEquals("https://upload.example.com/put/abc", parsed.value.putUrl)
+        assertEquals("https://cdn.example.com/get/abc", parsed.value.getUrl)
+        assertEquals(1, parsed.value.headers.size)
+        assertEquals("Authorization", parsed.value.headers.first().name)
+    }
+
+    @Test
+    fun test_parseUploadSlotResult_whenWrongIqType_returnsFailure() {
+        val service = DefaultXmppHttpUploadService(FakeUploadClient(XmppResult.Success(Unit)))
+        val xml = "<iq type='error'><slot xmlns='urn:xmpp:http:upload:0'/></iq>"
+
+        val parsed = service.parseUploadSlotResult(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals(XmppErrorCode.ParsingFailed, parsed.error.code)
+    }
+
+    @Test
+    fun test_validateUploadSlotRequest_whenValidRequest_returnsId() {
+        val service = DefaultXmppHttpUploadService(FakeUploadClient(XmppResult.Success(Unit)))
+        val xml = """
+            <iq type='get' id='req-1'>
+              <request xmlns='urn:xmpp:http:upload:0' filename='photo.jpg' size='1024'/>
+            </iq>
+        """.trimIndent()
+
+        val validated = service.validateUploadSlotRequest(xml)
+
+        assertIs<XmppResult.Success<String>>(validated)
+        assertEquals("req-1", validated.value)
+    }
+
+    @Test
+    fun test_validateUploadSlotRequest_whenMissingNamespace_returnsFailure() {
+        val service = DefaultXmppHttpUploadService(FakeUploadClient(XmppResult.Success(Unit)))
+        val xml = "<iq type='get' id='req-1'><request/></iq>"
+
+        val validated = service.validateUploadSlotRequest(xml)
+
+        assertIs<XmppResult.Failure>(validated)
+        assertEquals(XmppErrorCode.ParsingFailed, validated.error.code)
+}
 }
 
 private class FakeUploadClient(private val sendResult: XmppResult<Unit>) : KmpXmppClient {

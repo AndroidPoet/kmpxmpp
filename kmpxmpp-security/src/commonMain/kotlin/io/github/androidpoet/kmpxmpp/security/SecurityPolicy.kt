@@ -14,6 +14,7 @@ public enum class TlsMode {
 public data class SecurityPolicy(
     val tlsMode: TlsMode = TlsMode.Required,
     val allowPlainAuthWithoutTls: Boolean = false,
+    val requireChannelBindingAdvertisementForSasl2: Boolean = true,
 )
 
 public fun SecurityPolicy.validateTlsState(tlsActive: Boolean): XmppResult<Unit> {
@@ -44,5 +45,24 @@ public fun SecurityPolicy.validateAuthMechanism(
         )
     }
 
+    return XmppResult.Success(Unit)
+}
+
+public fun SecurityPolicy.validateChannelBindingSupport(
+    isSasl2: Boolean,
+    channelBindingTypes: Set<String>,
+): XmppResult<Unit> {
+    if (!requireChannelBindingAdvertisementForSasl2) {
+        return XmppResult.Success(Unit)
+    }
+    if (isSasl2 && channelBindingTypes.isEmpty()) {
+        return XmppResult.Failure(
+            xmppErrorSecurityViolation(
+                message = "SASL2 requires advertised channel-binding types by policy.",
+                stage = XmppErrorStage.Authentication,
+                recoverable = false,
+            ),
+        )
+    }
     return XmppResult.Success(Unit)
 }

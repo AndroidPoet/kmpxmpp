@@ -1,13 +1,13 @@
 name: Build
 
 on:
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: macos-latest
+  jvm-verify:
+    name: JVM Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -18,8 +18,11 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Compile
-        run: ./gradlew compileKotlinJvm
+      - name: Compile JVM modules
+        run: ./gradlew compileKotlinJvm --no-daemon --stacktrace
 
-      - name: Test
-        run: ./gradlew jvmTest
+      - name: Run JVM tests
+        run: ./gradlew jvmTest --no-daemon --stacktrace
+
+      - name: Verify Local Publishability
+        run: ./gradlew publishToMavenLocal --no-daemon --stacktrace

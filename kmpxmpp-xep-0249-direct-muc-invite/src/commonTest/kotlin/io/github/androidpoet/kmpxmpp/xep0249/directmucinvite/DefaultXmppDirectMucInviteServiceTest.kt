@@ -41,6 +41,57 @@ class DefaultXmppDirectMucInviteServiceTest {
         assertIs<XmppResult.Failure>(result)
         assertEquals(XmppErrorCode.InvalidInput, result.error.code)
     }
+
+    @Test
+    fun test_parseInvite_whenValidInvite_returnsParsedFields() {
+        val service = DefaultXmppDirectMucInviteService(FakeInviteClient(XmppResult.Success(Unit)))
+        val xml = """
+            <message from='owner@example.com' to='alice@example.com'>
+              <x xmlns='jabber:x:conference' jid='team@conference.example.com'
+                 reason='Join us'
+                 password='secret'
+                 thread='t-1'
+                 continue='true'/>
+            </message>
+        """.trimIndent()
+
+        val parsed = service.parseInvite(xml)
+
+        assertIs<XmppResult.Success<ParsedDirectMucInvite>>(parsed)
+        assertEquals("owner", parsed.value.inviter?.local)
+        assertEquals("alice", parsed.value.invitee?.local)
+        assertEquals("team", parsed.value.room.local)
+        assertEquals("conference.example.com", parsed.value.room.domain)
+        assertEquals("Join us", parsed.value.reason)
+        assertEquals("secret", parsed.value.password)
+        assertEquals("t-1", parsed.value.thread)
+        assertEquals(true, parsed.value.continueFlag)
+    }
+
+    @Test
+    fun test_parseInvite_whenConferenceElementMissing_returnsFailure() {
+        val service = DefaultXmppDirectMucInviteService(FakeInviteClient(XmppResult.Success(Unit)))
+        val xml = "<message from='owner@example.com' to='alice@example.com'/>"
+
+        val parsed = service.parseInvite(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals(
+            "Direct MUC invite stanza missing <x xmlns='jabber:x:conference'/> element.",
+            parsed.error.message,
+        )
+    }
+
+    @Test
+    fun test_parseInvite_whenRoomJidInvalid_returnsFailure() {
+        val service = DefaultXmppDirectMucInviteService(FakeInviteClient(XmppResult.Success(Unit)))
+        val xml = "<message><x xmlns='jabber:x:conference' jid='conference.example.com'/></message>"
+
+        val parsed = service.parseInvite(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals("Direct MUC invite room jid is invalid.", parsed.error.message)
+    }
 }
 
 private class FakeInviteClient(private val sendResult: XmppResult<Unit>) : KmpXmppClient {

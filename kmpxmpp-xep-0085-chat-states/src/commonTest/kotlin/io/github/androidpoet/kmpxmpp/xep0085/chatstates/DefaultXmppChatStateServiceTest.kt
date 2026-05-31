@@ -40,6 +40,41 @@ class DefaultXmppChatStateServiceTest {
         assertEquals(XmppErrorCode.InvalidInput, result.error.code)
         assertEquals("Recipient JID domain cannot be blank.", result.error.message)
     }
+
+    @Test
+    fun test_parseState_whenComposingValid_returnsParsedState() {
+        val service = DefaultXmppChatStateService(FakeChatStateClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<message from='alice@example.com' to='bob@example.com'><composing xmlns='http://jabber.org/protocol/chatstates'/></message>"
+
+        val parsed = service.parseState(xml)
+
+        assertIs<XmppResult.Success<ParsedChatState>>(parsed)
+        assertEquals(XmppChatState.Composing, parsed.value.state)
+        assertEquals("alice", parsed.value.from?.local)
+        assertEquals("bob", parsed.value.to?.local)
+    }
+
+    @Test
+    fun test_parseState_whenNamespaceMissing_returnsFailure() {
+        val service = DefaultXmppChatStateService(FakeChatStateClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<message><active/></message>"
+
+        val parsed = service.parseState(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals("Chat state stanza missing chat states namespace.", parsed.error.message)
+    }
+
+    @Test
+    fun test_parseState_whenStateElementMissing_returnsFailure() {
+        val service = DefaultXmppChatStateService(FakeChatStateClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<message><x xmlns='http://jabber.org/protocol/chatstates'/></message>"
+
+        val parsed = service.parseState(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals("Chat state stanza missing valid chat state element.", parsed.error.message)
+    }
 }
 
 private class FakeChatStateClient(

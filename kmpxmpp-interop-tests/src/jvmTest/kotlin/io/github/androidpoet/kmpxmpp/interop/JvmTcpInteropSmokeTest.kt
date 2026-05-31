@@ -48,6 +48,13 @@ class JvmTcpInteropSmokeTest {
                             writer.flush()
                         }
 
+                        val streamReopen = reader.readLine()
+                        if (streamReopen != null) {
+                            captured += streamReopen
+                            writer.write("$featuresXml\n")
+                            writer.flush()
+                        }
+
                         val bind = reader.readLine()
                         if (bind != null) {
                             captured += bind
@@ -96,11 +103,12 @@ class JvmTcpInteropSmokeTest {
 
         serverJob.await()
 
-        assertEquals(4, captured.size)
+        assertEquals(5, captured.size)
         assertTrue(captured.first().contains("<stream:stream"))
         assertTrue(captured[1].contains("<auth"))
-        assertTrue(captured[2].contains("<bind"))
-        assertTrue(captured[3].contains("<message"))
-        assertTrue(captured[3].contains("<body>ping</body>"))
+        assertTrue(captured[2].contains("<stream:stream"))
+        assertTrue(captured[3].contains("<bind"))
+        assertTrue(captured[4].contains("<message"))
+        assertTrue(captured[4].contains("<body>ping</body>"))
     }
 }

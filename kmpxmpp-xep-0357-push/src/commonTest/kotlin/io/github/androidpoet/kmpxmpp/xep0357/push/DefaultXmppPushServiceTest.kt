@@ -42,6 +42,40 @@ class DefaultXmppPushServiceTest {
         assertIs<XmppResult.Failure>(result)
         assertEquals(XmppErrorCode.InvalidInput, result.error.code)
     }
+
+    @Test
+    fun test_parsePushDirective_whenEnableDirective_returnsParsedDirective() {
+        val service = DefaultXmppPushService(FakePushClient(XmppResult.Success(Unit)))
+        val xml = "<iq type='set'><enable xmlns='urn:xmpp:push:0' jid='push.example.com' node='n1'/></iq>"
+
+        val parsed = service.parsePushDirective(xml)
+
+        assertIs<XmppResult.Success<ParsedPushDirective>>(parsed)
+        assertEquals("enable", parsed.value.action)
+        assertEquals("push.example.com", parsed.value.serviceJid)
+        assertEquals("n1", parsed.value.node)
+    }
+
+    @Test
+    fun test_parsePushDirective_whenNamespaceMissing_returnsFailure() {
+        val service = DefaultXmppPushService(FakePushClient(XmppResult.Success(Unit)))
+        val xml = "<iq><enable jid='push.example.com' node='n1'/></iq>"
+
+        val parsed = service.parsePushDirective(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals(XmppErrorCode.ParsingFailed, parsed.error.code)
+    }
+
+    @Test
+    fun test_validatePushIqResult_whenMatchingId_returnsSuccess() {
+        val service = DefaultXmppPushService(FakePushClient(XmppResult.Success(Unit)))
+        val xml = "<iq type='result' id='push-1'/>"
+
+        val validated = service.validatePushIqResult(xml, requestId = "push-1")
+
+        assertIs<XmppResult.Success<Unit>>(validated)
+    }
 }
 
 private class FakePushClient(private val sendResult: XmppResult<Unit>) : KmpXmppClient {

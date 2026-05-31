@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${ROOT_DIR}"
+
+required_files=(
+  ".github/workflows/build.yml"
+  ".github/workflows/docker-e2e.yml"
+  ".github/workflows/publish.yml"
+  "docs/PRODUCTION_READINESS.md"
+  "docs/SECURITY_ROADMAP.md"
+  "scripts/scan-marker-modules.sh"
+  "scripts/scan-readiness-claims.sh"
+  "scripts/verify-production.sh"
+)
+
+for file in "${required_files[@]}"; do
+  if [[ ! -f "${file}" ]]; then
+    echo "Missing required production file: ${file}" >&2
+    exit 1
+  fi
+done
+
+if ! grep -Fq "dependsOn(productionDockerSample)" "${ROOT_DIR}/build.gradle.kts"; then
+  echo "Missing productionVerify gate dependency: productionDockerSample." >&2
+  exit 1
+fi
+
+bash "${ROOT_DIR}/scripts/scan-readiness-claims.sh"
+bash "${ROOT_DIR}/scripts/scan-marker-modules.sh"
+
+readiness_file="docs/PRODUCTION_READINESS.md"
+readme_file="README.md"
+required_readiness_phrases=(
+  "must **not** be marketed as full audited OMEMO E2EE lifecycle complete yet"
+  "Partial OMEMO lifecycle implementation, not full audited E2EE lifecycle"
+  "SASL2 / channel-binding hardening is tracked explicitly in docs/SECURITY_ROADMAP.md."
+)
+required_readme_phrases=(
+  "production-capable baseline chat workflows"
+  "not full audited OMEMO E2EE lifecycle complete yet"
+)
+
+for phrase in "${required_readiness_phrases[@]}"; do
+  if ! grep -Fq "${phrase}" "${readiness_file}"; then
+    echo "Missing required readiness wording in ${readiness_file}: ${phrase}" >&2
+    exit 1
+  fi
+done
+
+for phrase in "${required_readme_phrases[@]}"; do
+  if ! grep -Fq "${phrase}" "${readme_file}"; then
+    echo "Missing required readiness wording in ${readme_file}: ${phrase}" >&2
+    exit 1
+  fi
+done
+
+if [[ "${KMPXMPP_ENFORCE_PUBLISH_SECRETS:-false}" == "true" ]]; then
+  required_env=(
+    "ORG_GRADLE_PROJECT_mavenCentralUsername"
+    "ORG_GRADLE_PROJECT_mavenCentralPassword"
+    "ORG_GRADLE_PROJECT_signingInMemoryKeyId"
+    "ORG_GRADLE_PROJECT_signingInMemoryKey"
+    "ORG_GRADLE_PROJECT_signingInMemoryKeyPassword"
+  )
+
+  for var in "${required_env[@]}"; do
+    if [[ -z "${!var:-}" ]]; then
+      echo "Missing required publish environment variable: ${var}" >&2
+      exit 1
+    fi
+  done
+fi
+
+echo "Release preflight passed."

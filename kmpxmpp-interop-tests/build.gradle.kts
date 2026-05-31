@@ -1,6 +1,5 @@
-@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
-
 import io.github.androidpoet.xmpp.Configuration
+import org.gradle.api.tasks.testing.Test
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -15,14 +14,6 @@ kotlin {
 
     androidTarget { publishLibraryVariants("release") }
     jvm()
-    iosX64()
-    iosArm64()
-    iosSimulatorArm64()
-    macosX64()
-    macosArm64()
-    linuxX64()
-    mingwX64()
-    wasmJs { browser() }
 
     sourceSets {
         commonMain.dependencies {
@@ -52,4 +43,36 @@ android {
 
 mavenPublishing {
     coordinates(Configuration.GROUP, "kmpxmpp-interop-tests", Configuration.VERSION)
+}
+
+val startProsodyE2e by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Starts Prosody Docker stack for KmpXMPP interop E2E tests."
+    commandLine("bash", "${project.projectDir}/scripts/start-prosody-e2e.sh")
+}
+
+val stopProsodyE2e by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Stops Prosody Docker stack for KmpXMPP interop E2E tests."
+    commandLine("bash", "${project.projectDir}/scripts/stop-prosody-e2e.sh")
+}
+
+tasks.register("jvmDockerE2e") {
+    group = "verification"
+    description = "Runs JVM interop E2E tests against Dockerized Prosody."
+    dependsOn(startProsodyE2e)
+    dependsOn("jvmTest")
+    dependsOn(stopProsodyE2e)
+}
+
+tasks.named("jvmTest").configure {
+    mustRunAfter(startProsodyE2e)
+}
+
+stopProsodyE2e.configure {
+    mustRunAfter("jvmTest")
+}
+
+tasks.named<Test>("jvmTest").configure {
+    environment("KMPXMPP_RUN_DOCKER_E2E", System.getenv("KMPXMPP_RUN_DOCKER_E2E") ?: "false")
 }

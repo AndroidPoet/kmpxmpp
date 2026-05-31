@@ -11,3 +11,16 @@ public data class Jid(
         return "$localPart$domain$resourcePart"
     }
 }
+
+public fun parseJidOrNull(value: String): Jid? {
+    val trimmed = value.trim()
+    if (trimmed.isEmpty()) return null
+    val bare = trimmed.substringBefore('/')
+    if (bare.isEmpty()) return null
+    val hasLocal = bare.contains("@")
+    val local = if (hasLocal) bare.substringBefore('@').ifEmpty { return null } else null
+    val domain = if (hasLocal) bare.substringAfter('@') else bare
+    if (domain.isBlank()) return null
+    val resource = trimmed.substringAfter('/', "").ifBlank { null }
+    return Jid(local = local, domain = domain, resource = resource)
+}

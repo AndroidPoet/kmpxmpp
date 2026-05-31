@@ -37,6 +37,86 @@ class DefaultXmppStanzaIdsServiceTest {
         assertIs<XmppResult.Failure>(result)
         assertEquals(XmppErrorCode.InvalidInput, result.error.code)
     }
+
+    @Test
+    fun test_sendMessageWithOriginAndStanzaId_whenValidInput_sendsBothElements() = runTest {
+        val client = FakeStanzaIdsClient(XmppResult.Success(Unit))
+        val service = DefaultXmppStanzaIdsService(client)
+
+        val result = service.sendMessageWithOriginAndStanzaId(
+            to = Jid(local = "b", domain = "example.com"),
+            body = "hi",
+            originId = "origin-2",
+            stanzaId = "stanza-2",
+            stanzaBy = Jid(local = null, domain = "archive.example.com"),
+        )
+
+        assertIs<XmppResult.Success<Unit>>(result)
+        assertEquals(1, client.sendCalls)
+        assertTrue(client.lastStanza!!.contains("<origin-id"))
+        assertTrue(client.lastStanza!!.contains("<stanza-id"))
+        assertTrue(client.lastStanza!!.contains("by='archive.example.com'"))
+    }
+
+    @Test
+    fun test_parseStanzaIds_whenValidXml_returnsParsedIds() {
+        val service = DefaultXmppStanzaIdsService(FakeStanzaIdsClient(XmppResult.Success(Unit)))
+        val xml = """
+            <message>
+              <origin-id xmlns='urn:xmpp:sid:0' id='origin-1'/>
+              <stanza-id xmlns='urn:xmpp:sid:0' by='archive.example.com' id='stanza-1'/>
+              <stanza-id xmlns='urn:xmpp:sid:0' by='muc.example.com' id='stanza-2'/>
+            </message>
+        """.trimIndent()
+
+        val parsed = service.parseStanzaIds(xml)
+
+        assertIs<XmppResult.Success<ParsedStanzaIds>>(parsed)
+        assertEquals("origin-1", parsed.value.originId?.id)
+        assertEquals(2, parsed.value.stanzaIds.size)
+        assertEquals("stanza-1", parsed.value.stanzaIds[0].id)
+        assertEquals("archive.example.com", parsed.value.stanzaIds[0].by?.domain)
+    }
+
+    @Test
+    fun test_parseStanzaIds_whenOriginIdMissingId_returnsFailure() {
+        val service = DefaultXmppStanzaIdsService(FakeStanzaIdsClient(XmppResult.Success(Unit)))
+        val xml = "<message><origin-id xmlns='urn:xmpp:sid:0'/></message>"
+
+        val parsed = service.parseStanzaIds(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals("origin-id element missing id attribute.", parsed.error.message)
+    }
+
+    @Test
+    fun test_parseStanzaIds_whenNamespaceMissing_returnsFailure() {
+        val service = DefaultXmppStanzaIdsService(FakeStanzaIdsClient(XmppResult.Success(Unit)))
+        val xml = "<message><origin-id id='x'/></message>"
+
+        val parsed = service.parseStanzaIds(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals("Stanza is missing urn:xmpp:sid:0 namespace.", parsed.error.message)
+    }
+
+    @Test
+    fun test_parseStanzaIds_whenPrefixedTagsAndNamespacePresent_parsesSuccessfully() {
+        val service = DefaultXmppStanzaIdsService(FakeStanzaIdsClient(XmppResult.Success(Unit)))
+        val xml = """
+            <message>
+              <sid:origin-id xmlns:sid='urn:xmpp:sid:0' xmlns='urn:xmpp:sid:0' id='origin-9'/>
+              <sid:stanza-id xmlns:sid='urn:xmpp:sid:0' xmlns='urn:xmpp:sid:0' by='archive.example.com' id='stanza-9'/>
+            </message>
+        """.trimIndent()
+
+        val parsed = service.parseStanzaIds(xml)
+
+        assertIs<XmppResult.Success<ParsedStanzaIds>>(parsed)
+        assertEquals("origin-9", parsed.value.originId?.id)
+        assertEquals(1, parsed.value.stanzaIds.size)
+        assertEquals("stanza-9", parsed.value.stanzaIds.first().id)
+    }
 }
 
 private class FakeStanzaIdsClient(private val sendResult: XmppResult<Unit>) : KmpXmppClient {

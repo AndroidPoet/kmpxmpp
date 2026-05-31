@@ -9,9 +9,11 @@ import io.github.androidpoet.kmpxmpp.core.xmppErrorInvalidState
 import io.github.androidpoet.kmpxmpp.core.xmppResultOfSuspend
 import io.github.androidpoet.kmpxmpp.security.TlsMode
 import io.github.androidpoet.kmpxmpp.security.validateAuthMechanism
+import io.github.androidpoet.kmpxmpp.security.validateChannelBindingSupport
 import io.github.androidpoet.kmpxmpp.security.validateTlsState
 import io.github.androidpoet.kmpxmpp.transport.XmppTransport
 import io.github.androidpoet.kmpxmpp.xml.DefaultXmppStreamFeaturesParser
+import io.github.androidpoet.kmpxmpp.xml.XmppSaslProfile
 import io.github.androidpoet.kmpxmpp.xml.XmppStreamFeaturesParser
 
 public class XmppSessionOrchestrator(
@@ -51,9 +53,17 @@ public class XmppSessionOrchestrator(
                     sessionContext = XmppSessionContext(
                         tlsActive = tlsActiveAfterHandshake,
                         serverMechanisms = parsedFeatures.mechanisms,
+                        saslProfile = parsedFeatures.saslProfile,
+                        channelBindingTypes = parsedFeatures.channelBindingTypes,
                     )
 
                     config.securityPolicy.validateTlsState(tlsActiveAfterHandshake)
+                        .flatMap {
+                            config.securityPolicy.validateChannelBindingSupport(
+                                isSasl2 = parsedFeatures.saslProfile == XmppSaslProfile.Sasl2,
+                                channelBindingTypes = parsedFeatures.channelBindingTypes,
+                            )
+                        }
                         .flatMap { transitionTo(XmppStreamState.TlsUpgraded) }
                         .flatMap {
                             val selected = parsedFeatures.mechanisms.firstOrNull()

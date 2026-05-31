@@ -140,6 +140,24 @@ class XmppSessionOrchestratorTest {
         assertEquals("Unable to extract <stream:features> from server response.", result.error.message)
     }
 
+    @Test
+    fun test_orchestrator_start_whenSasl2WithoutChannelBindingsPolicyBlocked_returnsFailure() = runTest {
+        val orchestrator = XmppSessionOrchestrator(
+            config = XmppSessionConfig(
+                host = "chat.example.com",
+                tlsInitiallyActive = true,
+                securityPolicy = SecurityPolicy(requireChannelBindingAdvertisementForSasl2 = true),
+            ),
+            transport = FakeTransport(readResults = listOf(XmppResult.Success(sasl2FeaturesWithoutChannelBindingXml()))),
+        )
+
+        val result = orchestrator.start()
+
+        assertIs<XmppResult.Failure>(result)
+        assertEquals("SASL2 requires advertised channel-binding types by policy.", result.error.message)
+        assertEquals(XmppStreamState.FeaturesReceived, orchestrator.state)
+    }
+
     private fun validFeaturesXml(): String = """
         <stream:features>
           <mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'>
@@ -154,6 +172,14 @@ class XmppSessionOrchestratorTest {
           <mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'>
             <mechanism>PLAIN</mechanism>
           </mechanisms>
+        </stream:features>
+    """.trimIndent()
+
+    private fun sasl2FeaturesWithoutChannelBindingXml(): String = """
+        <stream:features>
+          <authentication xmlns='urn:xmpp:sasl:2'>
+            <mechanism>SCRAM-SHA-256</mechanism>
+          </authentication>
         </stream:features>
     """.trimIndent()
 }

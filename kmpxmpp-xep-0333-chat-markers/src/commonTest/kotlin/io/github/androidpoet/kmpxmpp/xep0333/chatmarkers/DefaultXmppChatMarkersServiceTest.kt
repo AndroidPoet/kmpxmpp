@@ -42,6 +42,41 @@ class DefaultXmppChatMarkersServiceTest {
         assertEquals(XmppErrorStage.Messaging, result.error.stage)
         assertEquals("Message id cannot be blank.", result.error.message)
     }
+
+    @Test
+    fun test_parseChatMarker_whenDisplayedMarkerValid_returnsParsedMarker() {
+        val service = DefaultXmppChatMarkersService(FakeChatMarkersClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<message from='alice@example.com'><displayed xmlns='urn:xmpp:chat-markers:0' id='m-77'/></message>"
+
+        val parsed = service.parseChatMarker(xml)
+
+        assertIs<XmppResult.Success<ParsedChatMarker>>(parsed)
+        assertEquals(ChatMarkerType.Displayed, parsed.value.type)
+        assertEquals("m-77", parsed.value.messageId)
+        assertEquals("alice", parsed.value.from?.local)
+    }
+
+    @Test
+    fun test_parseChatMarker_whenNamespaceMissing_returnsFailure() {
+        val service = DefaultXmppChatMarkersService(FakeChatMarkersClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<message><displayed id='m-77'/></message>"
+
+        val parsed = service.parseChatMarker(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals("Chat marker stanza missing urn:xmpp:chat-markers:0 namespace.", parsed.error.message)
+    }
+
+    @Test
+    fun test_parseChatMarker_whenIdMissing_returnsFailure() {
+        val service = DefaultXmppChatMarkersService(FakeChatMarkersClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<message><received xmlns='urn:xmpp:chat-markers:0'/></message>"
+
+        val parsed = service.parseChatMarker(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals("Chat marker element missing id attribute.", parsed.error.message)
+    }
 }
 
 private class FakeChatMarkersClient(

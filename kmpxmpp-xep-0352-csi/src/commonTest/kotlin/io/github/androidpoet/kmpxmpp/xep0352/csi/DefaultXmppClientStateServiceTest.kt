@@ -2,6 +2,7 @@ package io.github.androidpoet.kmpxmpp.xep0352.csi
 
 import io.github.androidpoet.kmpxmpp.client.KmpXmppClient
 import io.github.androidpoet.kmpxmpp.core.Jid
+import io.github.androidpoet.kmpxmpp.core.XmppErrorCode
 import io.github.androidpoet.kmpxmpp.core.XmppResult
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -33,6 +34,36 @@ class DefaultXmppClientStateServiceTest {
         assertIs<XmppResult.Success<Unit>>(result)
         assertEquals(1, client.sendCalls)
         assertTrue(client.lastStanza!!.contains("<inactive"))
+    }
+
+    @Test
+    fun test_parseClientState_whenActiveStanza_returnsActive() {
+        val service = DefaultXmppClientStateService(FakeCsiClient(sendResult = XmppResult.Success(Unit)))
+
+        val parsed = service.parseClientState("<active xmlns='urn:xmpp:csi:0'/>")
+
+        assertIs<XmppResult.Success<XmppClientState>>(parsed)
+        assertEquals(XmppClientState.Active, parsed.value)
+    }
+
+    @Test
+    fun test_parseClientState_whenInactiveStanza_returnsInactive() {
+        val service = DefaultXmppClientStateService(FakeCsiClient(sendResult = XmppResult.Success(Unit)))
+
+        val parsed = service.parseClientState("<inactive xmlns='urn:xmpp:csi:0'/>")
+
+        assertIs<XmppResult.Success<XmppClientState>>(parsed)
+        assertEquals(XmppClientState.Inactive, parsed.value)
+    }
+
+    @Test
+    fun test_parseClientState_whenNamespaceMissing_returnsFailure() {
+        val service = DefaultXmppClientStateService(FakeCsiClient(sendResult = XmppResult.Success(Unit)))
+
+        val parsed = service.parseClientState("<active/>")
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals(XmppErrorCode.ParsingFailed, parsed.error.code)
     }
 }
 

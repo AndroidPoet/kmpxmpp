@@ -18,11 +18,11 @@ class DefaultSaslAuthenticationServiceTest {
             jid = Jid(local = "alice", domain = "example.com"),
             password = "secret",
             tlsActive = true,
-            serverMechanisms = setOf(SaslMechanism.Plain, SaslMechanism.ScramSha256),
+            serverMechanisms = setOf(SaslMechanism.Plain, SaslMechanism.ScramSha256, SaslMechanism.ScramSha256Plus),
         )
 
         assertIs<XmppResult.Success<SaslMechanism>>(result)
-        assertEquals(SaslMechanism.ScramSha256, result.value)
+        assertEquals(SaslMechanism.ScramSha256Plus, result.value)
     }
 
     @Test

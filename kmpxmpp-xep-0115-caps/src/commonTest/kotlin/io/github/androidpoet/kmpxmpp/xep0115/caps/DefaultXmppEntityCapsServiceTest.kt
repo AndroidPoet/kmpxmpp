@@ -46,6 +46,44 @@ class DefaultXmppEntityCapsServiceTest {
         assertEquals(XmppErrorCode.InvalidInput, result.error.code)
         assertEquals("Caps node cannot be blank.", result.error.message)
     }
+
+    @Test
+    fun test_parsePresenceCaps_whenValidPayload_returnsCaps() {
+        val service = DefaultXmppEntityCapsService(FakeCapsClient(sendResult = XmppResult.Success(Unit)))
+        val xml = """
+            <presence from='romeo@example.com/home'>
+              <c xmlns='http://jabber.org/protocol/caps' node='https://kmpxmpp.dev/caps' hash='sha-1' ver='abc123'/>
+            </presence>
+        """.trimIndent()
+
+        val parsed = service.parsePresenceCaps(xml)
+
+        assertIs<XmppResult.Success<XmppEntityCaps>>(parsed)
+        assertEquals("https://kmpxmpp.dev/caps", parsed.value.node)
+        assertEquals("sha-1", parsed.value.hash)
+        assertEquals("abc123", parsed.value.ver)
+    }
+
+    @Test
+    fun test_parsePresenceCaps_whenMissingNamespace_returnsFailure() {
+        val service = DefaultXmppEntityCapsService(FakeCapsClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<presence><c node='n' hash='sha-1' ver='v1'/></presence>"
+
+        val parsed = service.parsePresenceCaps(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals(XmppErrorCode.ParsingFailed, parsed.error.code)
+    }
+
+    @Test
+    fun test_validateCapsPresence_whenValidPayload_returnsSuccess() {
+        val service = DefaultXmppEntityCapsService(FakeCapsClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<presence><c xmlns='http://jabber.org/protocol/caps' node='n' hash='sha-1' ver='v1'/></presence>"
+
+        val validated = service.validateCapsPresence(xml)
+
+        assertIs<XmppResult.Success<Unit>>(validated)
+    }
 }
 
 private class FakeCapsClient(

@@ -31,8 +31,10 @@ kotlin {
             api(project(":kmpxmpp-transport"))
             api(project(":kmpxmpp-security"))
             api(project(":kmpxmpp-sasl"))
+            api(project(":kmpxmpp-xml"))
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.okio)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

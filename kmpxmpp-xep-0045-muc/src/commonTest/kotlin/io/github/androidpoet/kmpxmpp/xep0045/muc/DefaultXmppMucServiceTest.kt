@@ -54,6 +54,78 @@ class DefaultXmppMucServiceTest {
         assertEquals(XmppErrorCode.InvalidInput, result.error.code)
         assertEquals("Group message body cannot be blank.", result.error.message)
     }
+
+    @Test
+    fun test_inviteUser_whenValidInput_sendsMucUserInviteMessage() = runTest {
+        val client = FakeMucClient(sendResult = XmppResult.Success(Unit))
+        val service = DefaultXmppMucService(client)
+
+        val result = service.inviteUser(
+            room = Jid(local = "room", domain = "conference.example.com"),
+            invitee = Jid(local = "bob", domain = "example.com"),
+            reason = "join us",
+        )
+
+        assertIs<XmppResult.Success<Unit>>(result)
+        assertEquals(1, client.sendCalls)
+        assertTrue(client.lastStanza!!.contains("http://jabber.org/protocol/muc#user"))
+        assertTrue(client.lastStanza!!.contains("<invite"))
+        assertTrue(client.lastStanza!!.contains("join us"))
+    }
+
+    @Test
+    fun test_parseOccupantPresence_whenJoinPresenceValid_returnsParsedPresence() {
+        val service = DefaultXmppMucService(FakeMucClient(sendResult = XmppResult.Success(Unit)))
+        val xml = """
+            <presence from='room@conference.example.com/alice'>
+              <x xmlns='http://jabber.org/protocol/muc#user'/>
+            </presence>
+        """.trimIndent()
+
+        val parsed = service.parseOccupantPresence(xml)
+
+        assertIs<XmppResult.Success<MucOccupantPresence>>(parsed)
+        assertEquals("room", parsed.value.room.local)
+        assertEquals("conference.example.com", parsed.value.room.domain)
+        assertEquals("alice", parsed.value.nickname)
+        assertTrue(parsed.value.joined)
+    }
+
+    @Test
+    fun test_parseOccupantPresence_whenFromMissing_returnsFailure() {
+        val service = DefaultXmppMucService(FakeMucClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<presence><x xmlns='http://jabber.org/protocol/muc#user'/></presence>"
+
+        val parsed = service.parseOccupantPresence(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals("MUC presence stanza missing from attribute.", parsed.error.message)
+    }
+
+    @Test
+    fun test_parseGroupMessage_whenValidGroupchat_returnsParsedMessage() {
+        val service = DefaultXmppMucService(FakeMucClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<message from='room@conference.example.com/alice' type='groupchat' id='m-1'><body>Hello team</body></message>"
+
+        val parsed = service.parseGroupMessage(xml)
+
+        assertIs<XmppResult.Success<MucGroupMessage>>(parsed)
+        assertEquals("room", parsed.value.room.local)
+        assertEquals("alice", parsed.value.fromNickname)
+        assertEquals("Hello team", parsed.value.body)
+        assertEquals("m-1", parsed.value.messageId)
+    }
+
+    @Test
+    fun test_parseGroupMessage_whenTypeNotGroupchat_returnsFailure() {
+        val service = DefaultXmppMucService(FakeMucClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<message from='room@conference.example.com/alice' type='chat'><body>hello</body></message>"
+
+        val parsed = service.parseGroupMessage(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals("MUC group message must be type='groupchat'.", parsed.error.message)
+    }
 }
 
 private class FakeMucClient(

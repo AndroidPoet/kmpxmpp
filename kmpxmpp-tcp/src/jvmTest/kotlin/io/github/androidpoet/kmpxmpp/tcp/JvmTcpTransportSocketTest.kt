@@ -52,6 +52,32 @@ class JvmTcpTransportSocketTest {
         assertIs<XmppResult.Failure>(result)
         assertTrue(result.error.message.isNotBlank())
     }
+
+    @Test
+    fun test_transport_whenServerWritesWithoutNewline_readsChunk() = runBlocking {
+        val server = ServerSocket(0)
+        val port = server.localPort
+
+        val serverJob = async(Dispatchers.IO) {
+            server.use {
+                it.accept().use { socket ->
+                    val writer = socket.getOutputStream().bufferedWriter(Charsets.UTF_8)
+                    writer.write("<stream:features><mechanisms><mechanism>PLAIN</mechanism></mechanisms></stream:features>")
+                    writer.flush()
+                }
+            }
+        }
+
+        val transport = createJvmTcpXmppTransport()
+        assertIs<XmppResult.Success<Unit>>(transport.connect("127.0.0.1", port))
+
+        val readResult = transport.read()
+        assertIs<XmppResult.Success<String>>(readResult)
+        assertTrue(readResult.value.contains("<stream:features>"))
+
+        assertIs<XmppResult.Success<Unit>>(transport.close())
+        serverJob.await()
+    }
 }
 
 private fun handleEcho(socket: Socket) {

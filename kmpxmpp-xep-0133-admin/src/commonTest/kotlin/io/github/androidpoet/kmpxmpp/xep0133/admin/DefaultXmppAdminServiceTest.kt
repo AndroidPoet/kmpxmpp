@@ -39,6 +39,47 @@ class DefaultXmppAdminServiceTest {
         assertIs<XmppResult.Failure>(result)
         assertEquals(XmppErrorCode.InvalidInput, result.error.code)
     }
+
+    @Test
+    fun test_parseRegisteredUsersCountResult_whenValidResult_returnsCount() {
+        val service = DefaultXmppAdminService(FakeAdminClient(XmppResult.Success(Unit)))
+        val xml = """
+            <iq type='result' id='admin-1'>
+              <command xmlns='http://jabber.org/protocol/commands' status='completed'>
+                <x xmlns='jabber:x:data' type='result'>
+                  <field var='registeredusersnum'><value>42</value></field>
+                </x>
+              </command>
+            </iq>
+        """.trimIndent()
+
+        val parsed = service.parseRegisteredUsersCountResult(xml)
+
+        assertIs<XmppResult.Success<RegisteredUsersCountResult>>(parsed)
+        assertEquals(42, parsed.value.count)
+    }
+
+    @Test
+    fun test_validateRegisteredUsersCountRequest_whenValidRequest_returnsRequestId() {
+        val service = DefaultXmppAdminService(FakeAdminClient(XmppResult.Success(Unit)))
+        val xml = "<iq type='set' id='admin-1'><command xmlns='http://jabber.org/protocol/commands' node='http://jabber.org/protocol/admin#get-registered-users-num' action='execute'/></iq>"
+
+        val validated = service.validateRegisteredUsersCountRequest(xml)
+
+        assertIs<XmppResult.Success<String>>(validated)
+        assertEquals("admin-1", validated.value)
+    }
+
+    @Test
+    fun test_validateRegisteredUsersCountResponse_whenIdMismatch_returnsFailure() {
+        val service = DefaultXmppAdminService(FakeAdminClient(XmppResult.Success(Unit)))
+        val xml = "<iq type='result' id='other'/>"
+
+        val validated = service.validateRegisteredUsersCountResponse(xml, requestId = "admin-1")
+
+        assertIs<XmppResult.Failure>(validated)
+        assertEquals(XmppErrorCode.ParsingFailed, validated.error.code)
+    }
 }
 
 private class FakeAdminClient(private val sendResult: XmppResult<Unit>) : KmpXmppClient {

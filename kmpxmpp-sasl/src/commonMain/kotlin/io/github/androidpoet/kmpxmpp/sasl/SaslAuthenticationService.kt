@@ -67,6 +67,8 @@ public class DefaultSaslAuthenticationService : SaslAuthenticationService {
     }
 
     private fun rankedClientMechanisms(): List<SaslMechanism> = listOf(
+        SaslMechanism.ScramSha256Plus,
+        SaslMechanism.ScramSha1Plus,
         SaslMechanism.ScramSha256,
         SaslMechanism.ScramSha1,
         SaslMechanism.Plain,

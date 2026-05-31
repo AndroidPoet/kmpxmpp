@@ -66,4 +66,29 @@ class SecurityPolicyTest {
 
         assertIs<XmppResult.Success<Unit>>(result)
     }
+
+    @Test
+    fun test_securityPolicy_validateChannelBindingSupport_whenSasl2AndNoBindings_returnsFailure() {
+        val policy = SecurityPolicy(requireChannelBindingAdvertisementForSasl2 = true)
+
+        val result = policy.validateChannelBindingSupport(
+            isSasl2 = true,
+            channelBindingTypes = emptySet(),
+        )
+
+        assertIs<XmppResult.Failure>(result)
+        assertEquals("SASL2 requires advertised channel-binding types by policy.", result.error.message)
+    }
+
+    @Test
+    fun test_securityPolicy_validateChannelBindingSupport_whenSasl2WithBindings_returnsSuccess() {
+        val policy = SecurityPolicy(requireChannelBindingAdvertisementForSasl2 = true)
+
+        val result = policy.validateChannelBindingSupport(
+            isSasl2 = true,
+            channelBindingTypes = setOf("tls-exporter"),
+        )
+
+        assertIs<XmppResult.Success<Unit>>(result)
+    }
 }

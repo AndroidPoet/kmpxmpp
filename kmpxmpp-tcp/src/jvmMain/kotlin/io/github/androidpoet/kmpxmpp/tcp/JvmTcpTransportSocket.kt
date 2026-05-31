@@ -7,6 +7,7 @@ import java.io.BufferedReader
 import java.io.BufferedWriter
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import java.net.SocketTimeoutException
 import java.net.Socket
 
 public class JvmTcpTransportSocket : TransportSocket {
@@ -16,6 +17,7 @@ public class JvmTcpTransportSocket : TransportSocket {
 
     override suspend fun connect(host: String, port: Int) {
         val connected = Socket(host, port)
+        connected.soTimeout = DEFAULT_READ_TIMEOUT_MILLIS
         socket = connected
         reader = BufferedReader(InputStreamReader(connected.getInputStream(), Charsets.UTF_8))
         writer = BufferedWriter(OutputStreamWriter(connected.getOutputStream(), Charsets.UTF_8))
@@ -29,11 +31,41 @@ public class JvmTcpTransportSocket : TransportSocket {
 
     override suspend fun read(): String {
         val currentReader = reader ?: error("TCP socket is not connected.")
-        val line = currentReader.readLine()
-        if (line == null) {
-            throw IllegalStateException("Remote peer closed the TCP stream.")
+        val builder = StringBuilder()
+        val buffer = CharArray(1024)
+
+        while (true) {
+            val readCount = try {
+                currentReader.read(buffer, 0, buffer.size)
+            } catch (_: SocketTimeoutException) {
+                if (builder.isNotEmpty()) {
+                    break
+                } else {
+                    throw IllegalStateException("Timed out waiting for TCP data.")
+                }
+            }
+
+            if (readCount == -1) {
+                if (builder.isEmpty()) {
+                    throw IllegalStateException("Remote peer closed the TCP stream.")
+                }
+                break
+            }
+
+            builder.append(buffer, 0, readCount)
+
+            if (builder.contains('\n')) {
+                break
+            }
+
+            // XMPP frames commonly do not end with '\n'. Once no additional bytes are
+            // buffered, return promptly instead of waiting for socket timeout.
+            if (!currentReader.ready()) {
+                break
+            }
         }
-        return line
+
+        return builder.toString().trimEnd('\n', '\r')
     }
 
     override suspend fun close() {
@@ -53,3 +85,5 @@ public class JvmTcpTransportSocket : TransportSocket {
 
 public fun createJvmTcpXmppTransport(): XmppTransport =
     DefaultXmppTransport(socket = JvmTcpTransportSocket())
+
+private const val DEFAULT_READ_TIMEOUT_MILLIS: Int = 1_500

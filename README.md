@@ -89,6 +89,80 @@ This keeps error handling explicit and deterministic across platforms.
 ./gradlew build
 ```
 
+## Quickstart (`main`)
+
+Minimal JVM example:
+
+```kotlin
+import io.github.androidpoet.kmpxmpp.client.DefaultKmpXmppClient
+import io.github.androidpoet.kmpxmpp.core.Jid
+import io.github.androidpoet.kmpxmpp.core.XmppResult
+import io.github.androidpoet.kmpxmpp.im.DefaultXmppMessageService
+import io.github.androidpoet.kmpxmpp.stream.XmppSessionConfig
+import io.github.androidpoet.kmpxmpp.stream.XmppSessionOrchestrator
+import io.github.androidpoet.kmpxmpp.tcp.createJvmTcpXmppTransport
+import kotlinx.coroutines.runBlocking
+
+fun main(): Unit = runBlocking {
+    val host = "localhost"
+    val port = 5222
+    val jid = Jid(local = "alice", domain = host)
+    val password = "strong-password"
+    val peer = Jid(local = "bob", domain = host)
+
+    val transport = createJvmTcpXmppTransport()
+    val orchestrator = XmppSessionOrchestrator(
+        config = XmppSessionConfig(
+            host = host,
+            port = port,
+            tlsInitiallyActive = false,
+        ),
+        transport = transport,
+    )
+    val client = DefaultKmpXmppClient(
+        streamEngine = orchestrator,
+        transport = transport,
+    )
+    val messages = DefaultXmppMessageService(client)
+
+    require(client.connect() is XmppResult.Success) { "connect failed" }
+    require(client.authenticate(jid, password) is XmppResult.Success) { "auth failed" }
+    require(messages.sendChatMessage(peer, "hello from kmpxmpp") is XmppResult.Success) { "send failed" }
+    require(client.disconnect() is XmppResult.Success) { "disconnect failed" }
+}
+```
+
+Run the full Docker-backed sample flow:
+
+```bash
+./gradlew :kmpxmpp-sample-whatsapp-jvm:run
+```
+
+## Production Verification
+
+Minimum verification gates before release:
+
+```bash
+./gradlew productionVerify --no-daemon --stacktrace
+```
+
+CI workflows:
+- `.github/workflows/build.yml` (JVM compile + tests)
+- `.github/workflows/docker-e2e.yml` (full `productionVerify` gate including Prosody Docker interop + sample run)
+
+Production checklist:
+- `docs/PRODUCTION_READINESS.md`
+- Optional strict publish-secret validation:
+  - `KMPXMPP_ENFORCE_PUBLISH_SECRETS=true ./gradlew productionReleasePreflight --no-daemon --stacktrace`
+
+## Real Server Interop (Prosody, Docker)
+
+```bash
+KMPXMPP_RUN_DOCKER_E2E=true ./gradlew :kmpxmpp-interop-tests:jvmDockerE2e
+```
+
+This starts a local Prosody container, runs JVM interop tests against it, and tears it down.
+
 ## Publish Coordinates (planned)
 
 - `io.github.androidpoet:kmpxmpp-core`
@@ -102,11 +176,7 @@ This keeps error handling explicit and deterministic across platforms.
 
 ## Status
 
-Base architecture scaffold is in place.
-Protocol-complete implementation is intentionally not done yet.
-
-Next implementation milestone:
-1. RFC 6120 stream open/features parsing
-2. STARTTLS flow
-3. SASL authentication flow
-4. Resource bind and ready state
+Core architecture and major client flows are implemented with automated JVM and Docker-backed verification.
+For production adoption, keep release gates strict (JVM tests + Docker E2E + sample run) and validate against your target XMPP server policy set (TLS/auth mechanisms, MUC, upload, receipts).
+Current claim boundary: production-capable baseline chat workflows, but **not** full audited OMEMO E2EE lifecycle complete yet.
+This project is not full audited OMEMO E2EE lifecycle complete yet.

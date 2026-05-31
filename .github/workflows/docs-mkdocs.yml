@@ -1,13 +1,6 @@
 name: Docs (MkDocs)
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'docs/**'
-      - 'mkdocs.yml'
-      - '.github/workflows/docs-mkdocs.yml'
-      - 'requirements-docs.txt'
   workflow_dispatch:
 
 permissions:

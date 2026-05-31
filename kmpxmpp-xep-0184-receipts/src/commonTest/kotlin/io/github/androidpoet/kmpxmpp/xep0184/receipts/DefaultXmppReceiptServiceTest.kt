@@ -61,6 +61,54 @@ class DefaultXmppReceiptServiceTest {
         assertTrue(client.lastStanza!!.contains("<received"))
         assertTrue(client.lastStanza!!.contains("id='m-22'"))
     }
+
+    @Test
+    fun test_parseReceiptRequest_whenValidXml_returnsParsedRequest() {
+        val service = DefaultXmppReceiptService(FakeReceiptClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<message from='alice@example.com' id='m1'><body>hi</body><request xmlns='urn:xmpp:receipts'/></message>"
+
+        val parsed = service.parseReceiptRequest(xml)
+
+        assertIs<XmppResult.Success<XmppReceiptRequest>>(parsed)
+        assertEquals("m1", parsed.value.messageId)
+        assertEquals("alice", parsed.value.from?.local)
+        assertEquals("example.com", parsed.value.from?.domain)
+    }
+
+    @Test
+    fun test_parseReceiptRequest_whenRequestMissing_returnsFailure() {
+        val service = DefaultXmppReceiptService(FakeReceiptClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<message from='alice@example.com' id='m1'><body>hi</body></message>"
+
+        val parsed = service.parseReceiptRequest(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals("Receipt stanza missing urn:xmpp:receipts namespace.", parsed.error.message)
+    }
+
+    @Test
+    fun test_parseReceivedReceipt_whenValidXml_returnsParsedReceipt() {
+        val service = DefaultXmppReceiptService(FakeReceiptClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<message from='bob@example.com'><received xmlns='urn:xmpp:receipts' id='m-22'/></message>"
+
+        val parsed = service.parseReceivedReceipt(xml)
+
+        assertIs<XmppResult.Success<XmppReceivedReceipt>>(parsed)
+        assertEquals("m-22", parsed.value.receiptId)
+        assertEquals("bob", parsed.value.from?.local)
+        assertEquals("example.com", parsed.value.from?.domain)
+    }
+
+    @Test
+    fun test_parseReceivedReceipt_whenIdMissing_returnsFailure() {
+        val service = DefaultXmppReceiptService(FakeReceiptClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<message><received xmlns='urn:xmpp:receipts'/></message>"
+
+        val parsed = service.parseReceivedReceipt(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals("Received receipt stanza missing id attribute.", parsed.error.message)
+    }
 }
 
 private class FakeReceiptClient(

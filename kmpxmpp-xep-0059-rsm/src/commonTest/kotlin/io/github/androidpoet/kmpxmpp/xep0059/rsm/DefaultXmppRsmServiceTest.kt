@@ -39,6 +39,84 @@ class DefaultXmppRsmServiceTest {
         assertIs<XmppResult.Failure>(result)
         assertEquals(XmppErrorCode.InvalidInput, result.error.code)
     }
+
+    @Test
+    fun test_parseRsmResult_whenValidResult_returnsParsedPage() {
+        val service = DefaultXmppRsmService(FakeRsmClient(XmppResult.Success(Unit)))
+        val xml = """
+            <iq type='result' id='mam-1'>
+              <fin xmlns='urn:xmpp:mam:2'>
+                <set xmlns='http://jabber.org/protocol/rsm'>
+                  <first>msg-1</first>
+                  <last>msg-20</last>
+                  <count>133</count>
+                </set>
+              </fin>
+            </iq>
+        """.trimIndent()
+
+        val parsed = service.parseRsmResult(xml)
+
+        assertIs<XmppResult.Success<XmppRsmResultPage>>(parsed)
+        assertEquals("msg-1", parsed.value.first)
+        assertEquals("msg-20", parsed.value.last)
+        assertEquals(133, parsed.value.count)
+    }
+
+    @Test
+    fun test_parseRsmResult_whenMissingSet_returnsFailure() {
+        val service = DefaultXmppRsmService(FakeRsmClient(XmppResult.Success(Unit)))
+        val xml = "<iq type='result'><fin xmlns='urn:xmpp:mam:2'/></iq>"
+
+        val parsed = service.parseRsmResult(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals(XmppErrorCode.ParsingFailed, parsed.error.code)
+    }
+
+    @Test
+    fun test_validateRsmRequest_whenValidSet_returnsSuccess() {
+        val service = DefaultXmppRsmService(FakeRsmClient(XmppResult.Success(Unit)))
+        val xml = "<query xmlns='urn:xmpp:mam:2'><set xmlns='http://jabber.org/protocol/rsm'><max>20</max><after>msg-1</after></set></query>"
+
+        val validated = service.validateRsmRequest(xml)
+
+        assertIs<XmppResult.Success<Unit>>(validated)
+    }
+
+    @Test
+    fun test_validateRsmRequest_whenBothAfterAndBefore_returnsFailure() {
+        val service = DefaultXmppRsmService(FakeRsmClient(XmppResult.Success(Unit)))
+        val xml = "<query><set xmlns='http://jabber.org/protocol/rsm'><after>a</after><before>b</before></set></query>"
+
+        val validated = service.validateRsmRequest(xml)
+
+        assertIs<XmppResult.Failure>(validated)
+        assertEquals(XmppErrorCode.ParsingFailed, validated.error.code)
+    }
+
+    @Test
+    fun test_parseRsmResult_whenPrefixedSetAndValues_returnsParsedPage() {
+        val service = DefaultXmppRsmService(FakeRsmClient(XmppResult.Success(Unit)))
+        val xml = """
+            <iq type='result' id='mam-1'>
+              <fin xmlns='urn:xmpp:mam:2'>
+                <rsm:set xmlns:rsm='http://jabber.org/protocol/rsm' xmlns='http://jabber.org/protocol/rsm'>
+                  <rsm:first>p1</rsm:first>
+                  <rsm:last>p9</rsm:last>
+                  <rsm:count>9</rsm:count>
+                </rsm:set>
+              </fin>
+            </iq>
+        """.trimIndent()
+
+        val parsed = service.parseRsmResult(xml)
+
+        assertIs<XmppResult.Success<XmppRsmResultPage>>(parsed)
+        assertEquals("p1", parsed.value.first)
+        assertEquals("p9", parsed.value.last)
+        assertEquals(9, parsed.value.count)
+    }
 }
 
 private class FakeRsmClient(private val sendResult: XmppResult<Unit>) : KmpXmppClient {

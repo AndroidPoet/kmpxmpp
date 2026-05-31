@@ -36,6 +36,61 @@ class DefaultXmppForwardingServiceTest {
         assertIs<XmppResult.Failure>(result)
         assertEquals(XmppErrorCode.InvalidInput, result.error.code)
     }
+
+    @Test
+    fun test_parseForwardedMessage_whenValidEnvelope_returnsMessageXml() {
+        val service = DefaultXmppForwardingService(FakeForwardingClient(XmppResult.Success(Unit)))
+        val xml = """
+            <message from='a@example.com'>
+              <forwarded xmlns='urn:xmpp:forward:0'>
+                <message from='a@example.com' to='b@example.com'><body>hi</body></message>
+              </forwarded>
+            </message>
+        """.trimIndent()
+
+        val parsed = service.parseForwardedMessage(xml)
+
+        assertIs<XmppResult.Success<ParsedForwardedMessage>>(parsed)
+        assertTrue(parsed.value.messageXml.contains("<body>hi</body>"))
+    }
+
+    @Test
+    fun test_parseForwardedMessage_whenPrefixedForwardedTag_returnsMessageXml() {
+        val service = DefaultXmppForwardingService(FakeForwardingClient(XmppResult.Success(Unit)))
+        val xml = """
+            <message from='a@example.com'>
+              <f:forwarded xmlns:f='urn:xmpp:forward:0'>
+                <message from='a@example.com' to='b@example.com'><b:body xmlns:b='jabber:client'>prefixed</b:body></message>
+              </f:forwarded>
+            </message>
+        """.trimIndent()
+
+        val parsed = service.parseForwardedMessage(xml)
+
+        assertIs<XmppResult.Success<ParsedForwardedMessage>>(parsed)
+        assertTrue(parsed.value.messageXml.contains("prefixed"))
+    }
+
+    @Test
+    fun test_parseForwardedMessage_whenMissingForwardedNamespace_returnsFailure() {
+        val service = DefaultXmppForwardingService(FakeForwardingClient(XmppResult.Success(Unit)))
+        val xml = "<message><forwarded><message><body>hi</body></message></forwarded></message>"
+
+        val parsed = service.parseForwardedMessage(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals(XmppErrorCode.ParsingFailed, parsed.error.code)
+    }
+
+    @Test
+    fun test_validateForwardedEnvelope_whenValidEnvelope_returnsSuccess() {
+        val service = DefaultXmppForwardingService(FakeForwardingClient(XmppResult.Success(Unit)))
+        val xml = "<message><forwarded xmlns='urn:xmpp:forward:0'><message><body>ok</body></message></forwarded></message>"
+
+        val validated = service.validateForwardedEnvelope(xml)
+
+        assertIs<XmppResult.Success<Unit>>(validated)
+    }
 }
 
 private class FakeForwardingClient(private val sendResult: XmppResult<Unit>) : KmpXmppClient {

@@ -47,6 +47,48 @@ class DefaultXmppThumbnailsServiceTest {
         assertIs<XmppResult.Failure>(result)
         assertEquals(XmppErrorCode.InvalidInput, result.error.code)
     }
+
+    @Test
+    fun test_parseThumbnailReference_whenValidPayload_returnsParsedReference() {
+        val service = DefaultXmppThumbnailsService(FakeThumbnailsClient(XmppResult.Success(Unit)))
+        val xml = """
+            <message>
+              <reference xmlns='urn:xmpp:reference:0' type='data' uri='cid:media1'>
+                <thumbnail xmlns='urn:xmpp:thumbs:1' uri='cid:thumb1' media-type='image/jpeg' width='120' height='90'/>
+              </reference>
+            </message>
+        """.trimIndent()
+
+        val parsed = service.parseThumbnailReference(xml)
+
+        assertIs<XmppResult.Success<ParsedThumbnailReference>>(parsed)
+        assertEquals("cid:media1", parsed.value.mediaUri)
+        assertEquals("cid:thumb1", parsed.value.thumbnailUri)
+        assertEquals("image/jpeg", parsed.value.mimeType)
+        assertEquals(120, parsed.value.width)
+        assertEquals(90, parsed.value.height)
+    }
+
+    @Test
+    fun test_parseThumbnailReference_whenMissingThumbnailNamespace_returnsFailure() {
+        val service = DefaultXmppThumbnailsService(FakeThumbnailsClient(XmppResult.Success(Unit)))
+        val xml = "<message><reference xmlns='urn:xmpp:reference:0' uri='cid:media1'><thumbnail uri='cid:thumb1' media-type='image/jpeg' width='1' height='1'/></reference></message>"
+
+        val parsed = service.parseThumbnailReference(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals(XmppErrorCode.ParsingFailed, parsed.error.code)
+    }
+
+    @Test
+    fun test_validateThumbnailReference_whenValidPayload_returnsSuccess() {
+        val service = DefaultXmppThumbnailsService(FakeThumbnailsClient(XmppResult.Success(Unit)))
+        val xml = "<message><reference xmlns='urn:xmpp:reference:0' uri='cid:media1'><thumbnail xmlns='urn:xmpp:thumbs:1' uri='cid:thumb1' media-type='image/jpeg' width='120' height='90'/></reference></message>"
+
+        val validated = service.validateThumbnailReference(xml)
+
+        assertIs<XmppResult.Success<Unit>>(validated)
+    }
 }
 
 private class FakeThumbnailsClient(private val sendResult: XmppResult<Unit>) : KmpXmppClient {

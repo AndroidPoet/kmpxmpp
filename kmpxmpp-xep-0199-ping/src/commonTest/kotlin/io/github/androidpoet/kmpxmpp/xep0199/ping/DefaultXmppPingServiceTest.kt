@@ -37,6 +37,63 @@ class DefaultXmppPingServiceTest {
         assertEquals(XmppErrorCode.InvalidInput, result.error.code)
         assertEquals("Target JID domain cannot be blank.", result.error.message)
     }
+
+    @Test
+    fun test_parsePingResult_whenValidResultIq_returnsParsedResponse() {
+        val service = DefaultXmppPingService(FakePingClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<iq type='result' id='ping-1' from='server.example.com'/>"
+
+        val parsed = service.parsePingResult(xml)
+
+        assertIs<XmppResult.Success<XmppPingResponse>>(parsed)
+        assertEquals("ping-1", parsed.value.requestId)
+        assertEquals("server.example.com", parsed.value.from?.domain)
+    }
+
+    @Test
+    fun test_parsePingResult_whenResultIdMissing_returnsFailure() {
+        val service = DefaultXmppPingService(FakePingClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<iq type='result'/>"
+
+        val parsed = service.parsePingResult(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals("Ping result stanza missing id attribute.", parsed.error.message)
+    }
+
+    @Test
+    fun test_isPingTimeoutOrServiceUnavailable_whenTimeoutError_returnsTrue() {
+        val service = DefaultXmppPingService(FakePingClient(sendResult = XmppResult.Success(Unit)))
+        val xml = """
+            <iq type='error' id='ping-1'>
+              <error type='wait'>
+                <remote-server-timeout xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/>
+              </error>
+            </iq>
+        """.trimIndent()
+
+        val result = service.isPingTimeoutOrServiceUnavailable(xml, requestId = "ping-1")
+
+        assertIs<XmppResult.Success<Boolean>>(result)
+        assertTrue(result.value)
+    }
+
+    @Test
+    fun test_isPingTimeoutOrServiceUnavailable_whenDifferentId_returnsFalse() {
+        val service = DefaultXmppPingService(FakePingClient(sendResult = XmppResult.Success(Unit)))
+        val xml = """
+            <iq type='error' id='other-id'>
+              <error type='cancel'>
+                <service-unavailable xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/>
+              </error>
+            </iq>
+        """.trimIndent()
+
+        val result = service.isPingTimeoutOrServiceUnavailable(xml, requestId = "ping-1")
+
+        assertIs<XmppResult.Success<Boolean>>(result)
+        assertEquals(false, result.value)
+    }
 }
 
 private class FakePingClient(

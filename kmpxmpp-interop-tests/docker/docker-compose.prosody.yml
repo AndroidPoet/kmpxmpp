@@ -1,0 +1,17 @@
+services:
+  prosody:
+    image: prosody/prosody:latest
+    platform: ${KMPXMPP_PROSODY_PLATFORM:-linux/amd64}
+    ports:
+      - "5222:5222"
+    volumes:
+      - ./prosody/prosody.cfg.lua:/etc/prosody/prosody.cfg.lua:ro
+      - prosody-data:/var/lib/prosody
+    healthcheck:
+      test: ["CMD-SHELL", "prosodyctl about >/dev/null 2>&1 || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  prosody-data:

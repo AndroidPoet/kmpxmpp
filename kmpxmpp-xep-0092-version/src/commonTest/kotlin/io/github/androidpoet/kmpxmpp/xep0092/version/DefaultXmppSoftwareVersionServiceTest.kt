@@ -39,6 +39,81 @@ class DefaultXmppSoftwareVersionServiceTest {
         assertIs<XmppResult.Failure>(result)
         assertEquals(XmppErrorCode.InvalidInput, result.error.code)
     }
+
+    @Test
+    fun test_parseVersionResult_whenValidResult_returnsParsedVersion() {
+        val service = DefaultXmppSoftwareVersionService(FakeVersionClient(XmppResult.Success(Unit)))
+        val xml = """
+            <iq type='result' id='v-1'>
+              <query xmlns='jabber:iq:version'>
+                <name>ChatApp</name>
+                <version>1.2.3</version>
+                <os>Android</os>
+              </query>
+            </iq>
+        """.trimIndent()
+
+        val parsed = service.parseVersionResult(xml)
+
+        assertIs<XmppResult.Success<XmppSoftwareVersion>>(parsed)
+        assertEquals("ChatApp", parsed.value.name)
+        assertEquals("1.2.3", parsed.value.version)
+        assertEquals("Android", parsed.value.os)
+    }
+
+    @Test
+    fun test_parseVersionResult_whenVersionMissing_returnsFailure() {
+        val service = DefaultXmppSoftwareVersionService(FakeVersionClient(XmppResult.Success(Unit)))
+        val xml = "<iq type='result'><query xmlns='jabber:iq:version'><name>ChatApp</name></query></iq>"
+
+        val parsed = service.parseVersionResult(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals("Version response missing non-blank <version>.", parsed.error.message)
+    }
+
+    @Test
+    fun test_validateVersionRequest_whenValidGet_returnsRequestId() {
+        val service = DefaultXmppSoftwareVersionService(FakeVersionClient(XmppResult.Success(Unit)))
+        val xml = "<iq type='get' id='req-9'><query xmlns='jabber:iq:version'/></iq>"
+
+        val validated = service.validateVersionRequest(xml)
+
+        assertIs<XmppResult.Success<String>>(validated)
+        assertEquals("req-9", validated.value)
+    }
+
+    @Test
+    fun test_validateVersionRequest_whenTypeNotGet_returnsFailure() {
+        val service = DefaultXmppSoftwareVersionService(FakeVersionClient(XmppResult.Success(Unit)))
+        val xml = "<iq type='set' id='req-9'><query xmlns='jabber:iq:version'/></iq>"
+
+        val validated = service.validateVersionRequest(xml)
+
+        assertIs<XmppResult.Failure>(validated)
+        assertEquals("Version request IQ must be type='get'.", validated.error.message)
+    }
+
+    @Test
+    fun test_parseVersionResult_whenPrefixedTagsPresent_returnsParsedVersion() {
+        val service = DefaultXmppSoftwareVersionService(FakeVersionClient(XmppResult.Success(Unit)))
+        val xml = """
+            <iq type='result' id='v-2'>
+              <v:query xmlns:v='jabber:iq:version' xmlns='jabber:iq:version'>
+                <v:name>PrefixChat</v:name>
+                <v:version>9.9.9</v:version>
+                <v:os>Linux</v:os>
+              </v:query>
+            </iq>
+        """.trimIndent()
+
+        val parsed = service.parseVersionResult(xml)
+
+        assertIs<XmppResult.Success<XmppSoftwareVersion>>(parsed)
+        assertEquals("PrefixChat", parsed.value.name)
+        assertEquals("9.9.9", parsed.value.version)
+        assertEquals("Linux", parsed.value.os)
+    }
 }
 
 private class FakeVersionClient(private val sendResult: XmppResult<Unit>) : KmpXmppClient {

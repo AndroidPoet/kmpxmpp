@@ -34,6 +34,38 @@ class DefaultXmppIdleServiceTest {
         assertEquals(XmppErrorCode.InvalidInput, result.error.code)
         assertEquals("Idle since timestamp cannot be blank.", result.error.message)
     }
+
+    @Test
+    fun test_parseIdlePresence_whenValidPresence_returnsParsedIdle() {
+        val service = DefaultXmppIdleService(FakeIdleClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<presence><idle xmlns='urn:xmpp:idle:1' since='2026-05-31T10:00:00Z'/></presence>"
+
+        val parsed = service.parseIdlePresence(xml)
+
+        assertIs<XmppResult.Success<XmppIdlePresence>>(parsed)
+        assertEquals("2026-05-31T10:00:00Z", parsed.value.sinceIso8601)
+    }
+
+    @Test
+    fun test_parseIdlePresence_whenMissingSince_returnsFailure() {
+        val service = DefaultXmppIdleService(FakeIdleClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<presence><idle xmlns='urn:xmpp:idle:1'/></presence>"
+
+        val parsed = service.parseIdlePresence(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals(XmppErrorCode.ParsingFailed, parsed.error.code)
+    }
+
+    @Test
+    fun test_validateIdlePresence_whenValidPresence_returnsSuccess() {
+        val service = DefaultXmppIdleService(FakeIdleClient(sendResult = XmppResult.Success(Unit)))
+        val xml = "<presence><idle xmlns='urn:xmpp:idle:1' since='2026-05-31T10:00:00Z'/></presence>"
+
+        val validated = service.validateIdlePresence(xml)
+
+        assertIs<XmppResult.Success<Unit>>(validated)
+    }
 }
 
 private class FakeIdleClient(

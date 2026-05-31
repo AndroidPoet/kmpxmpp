@@ -41,6 +41,70 @@ class DefaultXmppOobServiceTest {
         assertIs<XmppResult.Failure>(result)
         assertEquals(XmppErrorCode.InvalidInput, result.error.code)
     }
+
+    @Test
+    fun test_parseOob_whenValidMessage_returnsParsedPayload() {
+        val service = DefaultXmppOobService(FakeOobClient(XmppResult.Success(Unit)))
+        val xml = """
+            <message from='alice@example.com' to='bob@example.com'>
+              <x xmlns='jabber:x:oob'>
+                <url>https://example.com/file.png</url>
+                <desc>Image file</desc>
+              </x>
+            </message>
+        """.trimIndent()
+
+        val parsed = service.parseOob(xml)
+
+        assertIs<XmppResult.Success<ParsedOobPayload>>(parsed)
+        assertEquals("alice", parsed.value.from?.local)
+        assertEquals("bob", parsed.value.to?.local)
+        assertEquals("https://example.com/file.png", parsed.value.url)
+        assertEquals("Image file", parsed.value.description)
+    }
+
+    @Test
+    fun test_parseOob_whenNamespaceMissing_returnsFailure() {
+        val service = DefaultXmppOobService(FakeOobClient(XmppResult.Success(Unit)))
+        val xml = "<message><x><url>https://example.com/file.png</url></x></message>"
+
+        val parsed = service.parseOob(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals("OOB stanza missing jabber:x:oob namespace.", parsed.error.message)
+    }
+
+    @Test
+    fun test_parseOob_whenUrlMissingOrUnsupported_returnsFailure() {
+        val service = DefaultXmppOobService(FakeOobClient(XmppResult.Success(Unit)))
+        val xml = "<message><x xmlns='jabber:x:oob'><url>ftp://example.com/file.png</url></x></message>"
+
+        val parsed = service.parseOob(xml)
+
+        assertIs<XmppResult.Failure>(parsed)
+        assertEquals("OOB URL must use http or https scheme.", parsed.error.message)
+    }
+
+    @Test
+    fun test_parseOob_whenPrefixedTagsPresent_returnsParsedPayload() {
+        val service = DefaultXmppOobService(FakeOobClient(XmppResult.Success(Unit)))
+        val xml = """
+            <m:message xmlns:m='jabber:client' from='alice@example.com' to='bob@example.com'>
+              <o:x xmlns:o='jabber:x:oob' xmlns='jabber:x:oob'>
+                <o:url>https://example.com/prefix.png</o:url>
+                <o:desc>prefixed payload</o:desc>
+              </o:x>
+            </m:message>
+        """.trimIndent()
+
+        val parsed = service.parseOob(xml)
+
+        assertIs<XmppResult.Success<ParsedOobPayload>>(parsed)
+        assertEquals("https://example.com/prefix.png", parsed.value.url)
+        assertEquals("prefixed payload", parsed.value.description)
+        assertEquals("alice", parsed.value.from?.local)
+        assertEquals("bob", parsed.value.to?.local)
+    }
 }
 
 private class FakeOobClient(private val sendResult: XmppResult<Unit>) : KmpXmppClient {
