@@ -7,6 +7,8 @@ This checklist defines the minimum release gate for `kmpxmpp`.
 - `kmpxmpp` is production-capable for baseline XMPP chat flows when the verification gates below pass.
 - `kmpxmpp` must **not** be marketed as full audited OMEMO E2EE lifecycle complete yet.
 - Correct label: **Partial OMEMO lifecycle implementation, not full audited E2EE lifecycle**.
+- Baseline production claim excludes deprecated/deferred/experimental XEP modules from guaranteed behavior.
+- `kmpxmpp-xep-0048-bookmarks` is deprecated by upstream XSF status and should be migrated toward `XEP-0402` native bookmarks for forward-looking deployments.
 - OMEMO persistence supports real SQLite-backed storage via KMP `SqlDriver`, and legacy unauthenticated payload fallback has been removed.
 - Crypto lifecycle completeness still requires additional hardening work before full audited E2EE lifecycle claims.
 - SASL2 / channel-binding hardening is tracked explicitly in docs/SECURITY_ROADMAP.md.

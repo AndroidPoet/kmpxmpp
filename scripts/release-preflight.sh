@@ -41,11 +41,15 @@ readme_file="README.md"
 required_readiness_phrases=(
   "must **not** be marketed as full audited OMEMO E2EE lifecycle complete yet"
   "Partial OMEMO lifecycle implementation, not full audited E2EE lifecycle"
+  "Baseline production claim excludes deprecated/deferred/experimental XEP modules from guaranteed behavior."
+  "kmpxmpp-xep-0048-bookmarks"
+  "XEP-0402"
   "SASL2 / channel-binding hardening is tracked explicitly in docs/SECURITY_ROADMAP.md."
 )
 required_readme_phrases=(
   "production-capable baseline chat workflows"
   "full audited OMEMO E2EE lifecycle complete yet"
+  "Baseline production claim excludes deprecated/deferred/experimental XEP modules"
 )
 
 for phrase in "${required_readiness_phrases[@]}"; do

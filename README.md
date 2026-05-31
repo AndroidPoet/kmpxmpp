@@ -182,3 +182,4 @@ This starts a local Prosody container, runs JVM interop tests against it, and te
 Core architecture and major client flows are implemented with automated JVM and Docker-backed verification.
 For production adoption, keep release gates strict (JVM tests + Docker E2E + sample run) and validate against your target XMPP server policy set (TLS/auth mechanisms, MUC, upload, receipts).
 Current claim boundary: production-capable baseline chat workflows, but **not** full audited OMEMO E2EE lifecycle complete yet.
+Baseline production claim excludes deprecated/deferred/experimental XEP modules; `kmpxmpp-xep-0048-bookmarks` is deprecated and should move to `XEP-0402` for future-forward bookmark sync.
