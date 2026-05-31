@@ -30,6 +30,12 @@ fi
 bash "${ROOT_DIR}/scripts/scan-readiness-claims.sh"
 bash "${ROOT_DIR}/scripts/scan-marker-modules.sh"
 
+omemo_claim_level="${KMPXMPP_OMEMO_CLAIM_LEVEL:-partial}"
+if [[ "${omemo_claim_level}" != "partial" && "${omemo_claim_level}" != "full" ]]; then
+  echo "Invalid KMPXMPP_OMEMO_CLAIM_LEVEL='${omemo_claim_level}'. Use 'partial' or 'full'." >&2
+  exit 1
+fi
+
 readiness_file="docs/PRODUCTION_READINESS.md"
 readme_file="README.md"
 required_readiness_phrases=(
@@ -39,7 +45,7 @@ required_readiness_phrases=(
 )
 required_readme_phrases=(
   "production-capable baseline chat workflows"
-  "not full audited OMEMO E2EE lifecycle complete yet"
+  "full audited OMEMO E2EE lifecycle complete yet"
 )
 
 for phrase in "${required_readiness_phrases[@]}"; do
@@ -55,6 +61,13 @@ for phrase in "${required_readme_phrases[@]}"; do
     exit 1
   fi
 done
+
+if [[ "${omemo_claim_level}" == "full" ]]; then
+  echo "KMPXMPP_OMEMO_CLAIM_LEVEL=full is not permitted by in-repo checks yet." >&2
+  echo "Blocked reason: external cryptography audit evidence and full lifecycle assurance artifacts are not present." >&2
+  echo "Use KMPXMPP_OMEMO_CLAIM_LEVEL=partial for current production baseline claim." >&2
+  exit 1
+fi
 
 if [[ "${KMPXMPP_ENFORCE_PUBLISH_SECRETS:-false}" == "true" ]]; then
   required_env=(
