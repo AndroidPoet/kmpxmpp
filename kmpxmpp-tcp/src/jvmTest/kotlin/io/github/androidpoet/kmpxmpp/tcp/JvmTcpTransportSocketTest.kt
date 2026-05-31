@@ -24,7 +24,7 @@ class JvmTcpTransportSocketTest {
             }
         }
 
-        val transport = createJvmTcpXmppTransport()
+        val transport = createTcpXmppTransport()
 
         val connectResult = transport.connect("127.0.0.1", port)
         assertIs<XmppResult.Success<Unit>>(connectResult)
@@ -45,7 +45,7 @@ class JvmTcpTransportSocketTest {
     @Test
     fun test_transport_whenPortClosed_connectReturnsFailure() = runBlocking {
         val reservedPort = ServerSocket(0).use { it.localPort }
-        val transport = createJvmTcpXmppTransport()
+        val transport = createTcpXmppTransport()
 
         val result = transport.connect("127.0.0.1", reservedPort)
 
@@ -68,7 +68,7 @@ class JvmTcpTransportSocketTest {
             }
         }
 
-        val transport = createJvmTcpXmppTransport()
+        val transport = createTcpXmppTransport()
         assertIs<XmppResult.Success<Unit>>(transport.connect("127.0.0.1", port))
 
         val readResult = transport.read()

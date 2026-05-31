@@ -7,7 +7,7 @@ import io.github.androidpoet.kmpxmpp.im.DefaultXmppMessageService
 import io.github.androidpoet.kmpxmpp.im.DefaultXmppPresenceService
 import io.github.androidpoet.kmpxmpp.stream.XmppSessionConfig
 import io.github.androidpoet.kmpxmpp.stream.XmppSessionOrchestrator
-import io.github.androidpoet.kmpxmpp.tcp.createJvmTcpXmppTransport
+import io.github.androidpoet.kmpxmpp.tcp.createTcpXmppTransport
 import io.github.androidpoet.kmpxmpp.transport.XmppTransport
 import io.github.androidpoet.kmpxmpp.xep0045.muc.DefaultXmppMucService
 import io.github.androidpoet.kmpxmpp.xep0066.oob.DefaultXmppOobService
@@ -171,7 +171,7 @@ private fun CoroutineScope.startIncomingPrinter(local: String, transport: XmppTr
     }
 
 private fun createSession(local: String): Session {
-    val transport = createJvmTcpXmppTransport()
+    val transport = createTcpXmppTransport()
     val orchestrator = XmppSessionOrchestrator(
         config = XmppSessionConfig(
             host = HOST,

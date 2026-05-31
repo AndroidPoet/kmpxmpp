@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 class JvmWebSocketTransportSocketTest {
     @Test
     fun test_transport_whenServerUnavailable_connectReturnsFailure() = runBlocking {
-        val transport = createJvmWebSocketXmppTransport(
+        val transport = createWebSocketXmppTransport(
             path = "/xmpp-websocket",
             secure = false,
             readTimeoutMillis = 500,
@@ -23,7 +23,7 @@ class JvmWebSocketTransportSocketTest {
 
     @Test
     fun test_transport_whenNotConnected_writeReturnsFailure() = runBlocking {
-        val transport = createJvmWebSocketXmppTransport(readTimeoutMillis = 500)
+        val transport = createWebSocketXmppTransport(readTimeoutMillis = 500)
 
         val result = transport.write("<message/>")
 
@@ -33,7 +33,7 @@ class JvmWebSocketTransportSocketTest {
 
     @Test
     fun test_transport_whenNotConnected_readReturnsFailure() = runBlocking {
-        val transport = createJvmWebSocketXmppTransport(readTimeoutMillis = 500)
+        val transport = createWebSocketXmppTransport(readTimeoutMillis = 500)
 
         val result = transport.read()
 

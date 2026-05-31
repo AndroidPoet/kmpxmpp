@@ -1,6 +1,5 @@
 package io.github.androidpoet.kmpxmpp.websocket
 
-import io.github.androidpoet.kmpxmpp.transport.DefaultXmppTransport
 import io.github.androidpoet.kmpxmpp.transport.TransportSocket
 import io.github.androidpoet.kmpxmpp.transport.XmppTransport
 
@@ -33,15 +32,17 @@ public class JvmWebSocketTransportSocket(
     }
 }
 
+@Deprecated(
+    message = "Use createWebSocketXmppTransport(...) for platform-neutral API.",
+    replaceWith = ReplaceWith("createWebSocketXmppTransport(path, secure, readTimeoutMillis)"),
+)
 public fun createJvmWebSocketXmppTransport(
     path: String = "/xmpp-websocket",
     secure: Boolean = false,
     readTimeoutMillis: Long = 30_000,
 ): XmppTransport =
-    DefaultXmppTransport(
-        socket = JvmWebSocketTransportSocket(
-            path = path,
-            secure = secure,
-            readTimeoutMillis = readTimeoutMillis,
-        ),
+    createWebSocketXmppTransport(
+        path = path,
+        secure = secure,
+        readTimeoutMillis = readTimeoutMillis,
     )

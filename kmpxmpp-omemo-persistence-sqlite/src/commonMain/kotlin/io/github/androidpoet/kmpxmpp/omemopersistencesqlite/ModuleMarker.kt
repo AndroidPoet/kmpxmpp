@@ -8,20 +8,22 @@ import io.github.androidpoet.kmpxmpp.omemocore.OmemoIdentityTrust
 import io.github.androidpoet.kmpxmpp.omemocore.OmemoSessionLifecycleState
 import io.github.androidpoet.kmpxmpp.omemocore.OmemoSessionRecord
 import io.github.androidpoet.kmpxmpp.omemocore.OmemoSessionRepository
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 internal object ModuleMarker
 
 public class SqliteOmemoSessionRepository(
     private val driver: SqlDriver,
 ) : OmemoSessionRepository {
-    private val lock: Any = Any()
+    private val lock: Mutex = Mutex()
 
     init {
         applyMigrations()
     }
 
     override suspend fun saveBundle(bundle: OmemoDeviceBundle) {
-        synchronized(lock) {
+        lock.withLock {
             driver.execute(
                 identifier = null,
                 sql = INSERT_OR_REPLACE_BUNDLE_SQL,
@@ -36,7 +38,7 @@ public class SqliteOmemoSessionRepository(
         }
     }
 
-    override suspend fun findBundle(userId: String, deviceId: Int): OmemoDeviceBundle? = synchronized(lock) {
+    override suspend fun findBundle(userId: String, deviceId: Int): OmemoDeviceBundle? = lock.withLock {
         driver.executeQuery(
             identifier = null,
             sql = FIND_BUNDLE_SQL,
@@ -49,7 +51,7 @@ public class SqliteOmemoSessionRepository(
     }
 
     override suspend fun saveSession(session: OmemoSessionRecord) {
-        synchronized(lock) {
+        lock.withLock {
             driver.execute(
                 identifier = null,
                 sql = INSERT_OR_REPLACE_SESSION_SQL,
@@ -64,7 +66,7 @@ public class SqliteOmemoSessionRepository(
         }
     }
 
-    override suspend fun findSession(userId: String, deviceId: Int): OmemoSessionRecord? = synchronized(lock) {
+    override suspend fun findSession(userId: String, deviceId: Int): OmemoSessionRecord? = lock.withLock {
         driver.executeQuery(
             identifier = null,
             sql = FIND_SESSION_SQL,
@@ -77,7 +79,7 @@ public class SqliteOmemoSessionRepository(
     }
 
     override suspend fun deleteSession(userId: String, deviceId: Int) {
-        synchronized(lock) {
+        lock.withLock {
             driver.execute(
                 identifier = null,
                 sql = DELETE_SESSION_SQL,
@@ -90,7 +92,7 @@ public class SqliteOmemoSessionRepository(
     }
 
     override suspend fun setTrust(userId: String, deviceId: Int, trust: OmemoIdentityTrust) {
-        synchronized(lock) {
+        lock.withLock {
             driver.execute(
                 identifier = null,
                 sql = UPDATE_TRUST_SQL,
@@ -104,7 +106,7 @@ public class SqliteOmemoSessionRepository(
     }
 
     override suspend fun saveLifecycleState(state: OmemoSessionLifecycleState) {
-        synchronized(lock) {
+        lock.withLock {
             driver.execute(
                 identifier = null,
                 sql = INSERT_OR_REPLACE_LIFECYCLE_SQL,
@@ -124,7 +126,7 @@ public class SqliteOmemoSessionRepository(
         }
     }
 
-    override suspend fun findLifecycleState(userId: String, deviceId: Int): OmemoSessionLifecycleState? = synchronized(lock) {
+    override suspend fun findLifecycleState(userId: String, deviceId: Int): OmemoSessionLifecycleState? = lock.withLock {
         driver.executeQuery(
             identifier = null,
             sql = FIND_LIFECYCLE_SQL,
@@ -137,7 +139,7 @@ public class SqliteOmemoSessionRepository(
     }
 
     override suspend fun deleteLifecycleState(userId: String, deviceId: Int) {
-        synchronized(lock) {
+        lock.withLock {
             driver.execute(
                 identifier = null,
                 sql = DELETE_LIFECYCLE_SQL,

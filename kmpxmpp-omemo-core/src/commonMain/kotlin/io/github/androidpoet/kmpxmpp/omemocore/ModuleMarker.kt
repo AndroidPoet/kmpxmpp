@@ -2,6 +2,8 @@ package io.github.androidpoet.kmpxmpp.omemocore
 
 import kotlin.random.Random
 import kotlinx.datetime.Clock
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okio.ByteString.Companion.decodeBase64
 import okio.ByteString.Companion.toByteString
 
@@ -65,8 +67,7 @@ public class OmemoLifecycleService(
     private val maxSessionAgeMillis: Long = DEFAULT_MAX_SESSION_AGE_MILLIS,
     private val maxSessionOperations: Int = DEFAULT_MAX_SESSION_OPERATIONS,
 ) {
-    private val replayLock: Any = Any()
-    private val lifecycleLock: Any = Any()
+    private val replayMutex: Mutex = Mutex()
     private val recentlySeenPayloadTags: MutableMap<String, MutableSet<String>> = linkedMapOf()
     private val recentlyUsedEncryptNonces: MutableMap<String, MutableSet<String>> = linkedMapOf()
 
@@ -366,7 +367,7 @@ public class OmemoLifecycleService(
         }
     }
 
-    private fun markReplayAndValidateFresh(userId: String, deviceId: Int, tagHex: String): Boolean = synchronized(replayLock) {
+    private suspend fun markReplayAndValidateFresh(userId: String, deviceId: Int, tagHex: String): Boolean = replayMutex.withLock {
         val key = "$userId#$deviceId"
         while (recentlySeenPayloadTags.size >= MAX_REPLAY_SESSION_KEYS && key !in recentlySeenPayloadTags) {
             val oldestKey = recentlySeenPayloadTags.keys.firstOrNull() ?: break
@@ -384,7 +385,7 @@ public class OmemoLifecycleService(
         true
     }
 
-    private fun generateFreshEncryptNonce(userId: String, deviceId: Int): ByteArray = synchronized(replayLock) {
+    private suspend fun generateFreshEncryptNonce(userId: String, deviceId: Int): ByteArray = replayMutex.withLock {
         val sessionKey = key(userId, deviceId)
         while (recentlyUsedEncryptNonces.size >= MAX_REPLAY_SESSION_KEYS && sessionKey !in recentlyUsedEncryptNonces) {
             val oldestKey = recentlyUsedEncryptNonces.keys.firstOrNull() ?: break
@@ -441,7 +442,7 @@ public class OmemoLifecycleService(
                 receiveChainKeyBase64 = null,
             ),
         )
-        synchronized(replayLock) {
+        replayMutex.withLock {
             recentlySeenPayloadTags.remove(sessionKey)
             recentlyUsedEncryptNonces.remove(sessionKey)
         }
@@ -450,7 +451,7 @@ public class OmemoLifecycleService(
     private suspend fun clearLifecycleState(userId: String, deviceId: Int) {
         val sessionKey = key(userId, deviceId)
         repository.deleteLifecycleState(userId, deviceId)
-        synchronized(replayLock) {
+        replayMutex.withLock {
             recentlySeenPayloadTags.remove(sessionKey)
             recentlyUsedEncryptNonces.remove(sessionKey)
         }

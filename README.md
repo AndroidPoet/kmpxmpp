@@ -63,10 +63,10 @@ Planned extension standards:
   - Public client facade contracts
 
 - `kmpxmpp-tcp`
-  - TCP transport configuration and adapter surface
+  - TCP transport configuration and adapter surface (JVM-only)
 
 - `kmpxmpp-websocket`
-  - RFC 7395 WebSocket transport configuration and adapter surface
+  - RFC 7395 WebSocket transport configuration and adapter surface (Ktor multiplatform path for Android/iOS/JVM)
 
 ## Security Defaults
 
@@ -100,17 +100,20 @@ import io.github.androidpoet.kmpxmpp.core.XmppResult
 import io.github.androidpoet.kmpxmpp.im.DefaultXmppMessageService
 import io.github.androidpoet.kmpxmpp.stream.XmppSessionConfig
 import io.github.androidpoet.kmpxmpp.stream.XmppSessionOrchestrator
-import io.github.androidpoet.kmpxmpp.tcp.createJvmTcpXmppTransport
+import io.github.androidpoet.kmpxmpp.websocket.createWebSocketXmppTransport
 import kotlinx.coroutines.runBlocking
 
 fun main(): Unit = runBlocking {
     val host = "localhost"
-    val port = 5222
+    val port = 5280
     val jid = Jid(local = "alice", domain = host)
     val password = "strong-password"
     val peer = Jid(local = "bob", domain = host)
 
-    val transport = createJvmTcpXmppTransport()
+    val transport = createWebSocketXmppTransport(
+        path = "/xmpp-websocket",
+        secure = false,
+    )
     val orchestrator = XmppSessionOrchestrator(
         config = XmppSessionConfig(
             host = host,

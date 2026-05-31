@@ -18,6 +18,8 @@ This checklist defines the minimum release gate for `kmpxmpp`.
 - This includes:
   - JVM compilation (`compileKotlinJvm`)
   - JVM unit/integration tests (`jvmTest`)
+  - Android compile verification (`compileDebugKotlinAndroid` / `compileReleaseKotlinAndroid` where available)
+  - iOS compile verification (`compileKotlinIosArm64` / `compileKotlinIosSimulatorArm64` where available)
   - Dockerized Prosody interop test (`:kmpxmpp-interop-tests:jvmDockerE2e`)
   - Dockerized WhatsApp-style sample run (`productionDockerSample`)
   - Release preflight checks (`productionReleasePreflight`)

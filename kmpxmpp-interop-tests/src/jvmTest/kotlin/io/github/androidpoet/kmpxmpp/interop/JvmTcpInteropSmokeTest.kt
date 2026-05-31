@@ -5,7 +5,7 @@ import io.github.androidpoet.kmpxmpp.core.Jid
 import io.github.androidpoet.kmpxmpp.core.XmppResult
 import io.github.androidpoet.kmpxmpp.stream.XmppSessionConfig
 import io.github.androidpoet.kmpxmpp.stream.XmppSessionOrchestrator
-import io.github.androidpoet.kmpxmpp.tcp.createJvmTcpXmppTransport
+import io.github.androidpoet.kmpxmpp.tcp.createTcpXmppTransport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
@@ -72,7 +72,7 @@ class JvmTcpInteropSmokeTest {
             }
         }
 
-        val transport = createJvmTcpXmppTransport()
+        val transport = createTcpXmppTransport()
         val orchestrator = XmppSessionOrchestrator(
             config = XmppSessionConfig(
                 host = "127.0.0.1",

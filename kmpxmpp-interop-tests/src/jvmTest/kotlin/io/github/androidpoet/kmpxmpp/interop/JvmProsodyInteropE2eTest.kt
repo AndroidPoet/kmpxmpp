@@ -5,7 +5,7 @@ import io.github.androidpoet.kmpxmpp.core.Jid
 import io.github.androidpoet.kmpxmpp.core.XmppResult
 import io.github.androidpoet.kmpxmpp.stream.XmppSessionConfig
 import io.github.androidpoet.kmpxmpp.stream.XmppSessionOrchestrator
-import io.github.androidpoet.kmpxmpp.tcp.createJvmTcpXmppTransport
+import io.github.androidpoet.kmpxmpp.tcp.createTcpXmppTransport
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertIs
@@ -17,7 +17,7 @@ class JvmProsodyInteropE2eTest {
             return@runBlocking
         }
 
-        val transport = createJvmTcpXmppTransport()
+        val transport = createTcpXmppTransport()
         val orchestrator = XmppSessionOrchestrator(
             config = XmppSessionConfig(
                 host = "localhost",

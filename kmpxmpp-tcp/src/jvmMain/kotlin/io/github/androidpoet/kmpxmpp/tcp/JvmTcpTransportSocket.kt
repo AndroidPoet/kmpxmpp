@@ -83,7 +83,13 @@ public class JvmTcpTransportSocket : TransportSocket {
     }
 }
 
-public fun createJvmTcpXmppTransport(): XmppTransport =
+public fun createTcpXmppTransport(): XmppTransport =
     DefaultXmppTransport(socket = JvmTcpTransportSocket())
+
+@Deprecated(
+    message = "Use createTcpXmppTransport() for platform-neutral API naming.",
+    replaceWith = ReplaceWith("createTcpXmppTransport()"),
+)
+public fun createJvmTcpXmppTransport(): XmppTransport = createTcpXmppTransport()
 
 private const val DEFAULT_READ_TIMEOUT_MILLIS: Int = 1_500

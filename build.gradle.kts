@@ -25,6 +25,11 @@ val productionJvmVerify = tasks.register("productionJvmVerify") {
     description = "Runs JVM compile and test verification across modules."
 }
 
+val productionMobileCompileVerify = tasks.register("productionMobileCompileVerify") {
+    group = "verification"
+    description = "Runs Android/iOS compile verification across modules."
+}
+
 val productionDockerSample = tasks.register<Exec>("productionDockerSample") {
     group = "verification"
     description = "Runs WhatsApp-style JVM sample against Dockerized Prosody backend."
@@ -36,6 +41,7 @@ tasks.register("productionVerify") {
     group = "verification"
     description = "Runs production verification gates (tests, Docker E2E, preflight)."
     dependsOn(productionJvmVerify)
+    dependsOn(productionMobileCompileVerify)
     dependsOn(productionDockerInterop)
     dependsOn(productionDockerSample)
     dependsOn(productionReleasePreflight)
@@ -61,5 +67,28 @@ gradle.projectsEvaluated {
     productionJvmVerify.configure {
         dependsOn(compileTasks)
         dependsOn(jvmTestTasks)
+    }
+
+    val androidCompileTasks = subprojects
+        .flatMap { project ->
+            listOf(
+                "${project.path}:compileDebugKotlinAndroid",
+                "${project.path}:compileReleaseKotlinAndroid",
+            )
+        }
+        .filter { path -> rootProject.findProject(path.substringBeforeLast(":"))?.tasks?.findByName(path.substringAfterLast(":")) != null }
+
+    val iosCompileTasks = subprojects
+        .flatMap { project ->
+            listOf(
+                "${project.path}:compileKotlinIosArm64",
+                "${project.path}:compileKotlinIosSimulatorArm64",
+            )
+        }
+        .filter { path -> rootProject.findProject(path.substringBeforeLast(":"))?.tasks?.findByName(path.substringAfterLast(":")) != null }
+
+    productionMobileCompileVerify.configure {
+        dependsOn(androidCompileTasks)
+        dependsOn(iosCompileTasks)
     }
 }
