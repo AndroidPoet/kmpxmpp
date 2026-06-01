@@ -42,6 +42,18 @@ kotlin {
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
         }
+        macosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
+        }
+        linuxX64Main.dependencies {
+            implementation(libs.ktor.client.curl)
+        }
+        mingwX64Main.dependencies {
+            implementation(libs.ktor.client.winhttp)
+        }
+        wasmJsMain.dependencies {
+            implementation(libs.ktor.client.js)
+        }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
