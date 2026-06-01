@@ -1,3 +1,5 @@
+![KmpXMPP](docs/images/kmpxmpp-header.png)
+
 # KmpXMPP
 
 Kotlin Multiplatform XMPP SDK for Android, iOS, and JVM/Desktop, with modular RFC/XEP support and Docker-backed interop tests.
