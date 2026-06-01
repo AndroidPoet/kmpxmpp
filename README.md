@@ -166,6 +166,37 @@ KMPXMPP_RUN_DOCKER_E2E=true ./gradlew :kmpxmpp-interop-tests:jvmDockerE2e
 
 This starts a local Prosody container, runs JVM interop tests against it, and tears it down.
 
+## Typed Feature Policy
+
+`kmpxmpp` now includes typed feature IDs and policy-aware capability registration in `kmpxmpp-core`.
+
+- `XmppFeatureId` (typed feature key)
+- `XmppFeaturePolicy` (`StableOnly`, `AllowExperimental`, `AllowDeferred`, `AllowDeprecated`, `AllowAll`)
+- `XmppCapabilityRegistry` (policy-gated feature registry)
+- `XmppFeatureCatalog` (typed constants for common feature namespaces)
+
+Example:
+
+```kotlin
+import io.github.androidpoet.kmpxmpp.client.DefaultKmpXmppClient
+import io.github.androidpoet.kmpxmpp.core.XmppFeatureCatalog
+import io.github.androidpoet.kmpxmpp.core.XmppFeaturePolicy
+
+val client = DefaultKmpXmppClient(
+    streamEngine = orchestrator,
+    transport = transport,
+    featurePolicy = XmppFeaturePolicy.StableOnly,
+)
+
+// after connect/authentication:
+val hasCarbons = client.supportsFeature(XmppFeatureCatalog.Carbons)
+val advertised = client.advertisedFeatures()
+```
+
+Notes:
+- Feature discovery is populated from advertised stream feature namespaces.
+- `StableOnly` prevents registration of known non-stable feature descriptors in typed registration paths.
+
 ## Publish Coordinates (planned)
 
 - `io.github.androidpoet:kmpxmpp-core`
