@@ -54,23 +54,40 @@ import io.github.androidpoet.kmpxmpp.websocket.createWebSocketXmppTransport
 import kotlinx.coroutines.runBlocking
 
 fun main(): Unit = runBlocking {
-    val host = "localhost"
-    val port = 5280
-    val me = Jid(local = "alice", domain = host)
+    val host = "chat.example.com"
+    val port = 443
+    val me = Jid(local = "alice", domain = host, resource = "android")
     val peer = Jid(local = "bob", domain = host)
 
-    val transport = createWebSocketXmppTransport(path = "/xmpp-websocket", secure = false)
+    // For production keep secure=true and tlsInitiallyActive=true.
+    val transport = createWebSocketXmppTransport(path = "/xmpp-websocket", secure = true)
     val orchestrator = XmppSessionOrchestrator(
-        config = XmppSessionConfig(host = host, port = port, tlsInitiallyActive = false),
+        config = XmppSessionConfig(
+            host = host,
+            port = port,
+            tlsInitiallyActive = true,
+        ),
         transport = transport,
     )
     val client = DefaultKmpXmppClient(streamEngine = orchestrator, transport = transport)
     val chat = DefaultXmppMessageService(client)
 
-    require(client.connect() is XmppResult.Success)
-    require(client.authenticate(me, "strong-password") is XmppResult.Success)
-    require(chat.sendChatMessage(peer, "hello from kmpxmpp") is XmppResult.Success)
-    require(client.disconnect() is XmppResult.Success)
+    try {
+        when (val connect = client.connect()) {
+            is XmppResult.Success -> Unit
+            is XmppResult.Failure -> error("connect failed: ${connect.error.message}")
+        }
+        when (val auth = client.authenticate(me, "strong-password")) {
+            is XmppResult.Success -> Unit
+            is XmppResult.Failure -> error("auth failed: ${auth.error.message}")
+        }
+        when (val send = chat.sendChatMessage(peer, "hello from kmpxmpp")) {
+            is XmppResult.Success -> Unit
+            is XmppResult.Failure -> error("send failed: ${send.error.message}")
+        }
+    } finally {
+        client.disconnect()
+    }
 }
 ```
 
