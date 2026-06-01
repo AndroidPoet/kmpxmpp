@@ -2,6 +2,9 @@ package io.github.androidpoet.kmpxmpp.client
 
 import io.github.androidpoet.kmpxmpp.core.Jid
 import io.github.androidpoet.kmpxmpp.core.XmppErrorStage
+import io.github.androidpoet.kmpxmpp.core.XmppCapabilityRegistry
+import io.github.androidpoet.kmpxmpp.core.XmppFeatureId
+import io.github.androidpoet.kmpxmpp.core.XmppFeaturePolicy
 import io.github.androidpoet.kmpxmpp.core.XmppXmlMiniParser
 import io.github.androidpoet.kmpxmpp.core.XmppResult
 import io.github.androidpoet.kmpxmpp.core.XmppResultException
@@ -37,9 +40,11 @@ public class DefaultKmpXmppClient(
     private val authStanzaParser: XmppAuthStanzaParser = DefaultXmppAuthStanzaParser(),
     private val connectRetryPolicy: XmppRetryPolicy = XmppRetryPolicy(maxAttempts = 1),
     private val nonceGenerator: () -> String = { randomNonce() },
+    featurePolicy: XmppFeaturePolicy = XmppFeaturePolicy.AllowAll,
 ) : KmpXmppClient {
 
     private var authenticatedJid: Jid? = null
+    private val capabilityRegistry: XmppCapabilityRegistry = XmppCapabilityRegistry(policy = featurePolicy)
 
     override suspend fun connect(): XmppResult<Unit> =
         retryXmppResult(policy = connectRetryPolicy) {
@@ -107,9 +112,11 @@ public class DefaultKmpXmppClient(
             }
             if (context.saslProfile == XmppSaslProfile.Sasl1) {
                 transport.write(buildStreamOpenXml(jid.domain)).getOrThrow()
-                readAndValidateStreamFeatures()
+                val streamFeaturesXml = readAndValidateStreamFeatures()
+                registerAdvertisedFeatures(streamFeaturesXml)
             } else {
-                readAndValidateStreamFeatures()
+                val streamFeaturesXml = readAndValidateStreamFeatures()
+                registerAdvertisedFeatures(streamFeaturesXml)
             }
 
             transport.write(buildBindRequestXml()).getOrThrow()
@@ -272,14 +279,14 @@ public class DefaultKmpXmppClient(
             }
             .toMap()
 
-    private suspend fun readAndValidateStreamFeatures() {
+    private suspend fun readAndValidateStreamFeatures(): String {
         val rawBuilder = StringBuilder()
         repeat(6) {
             val chunk = transport.read().getOrThrow()
             rawBuilder.append(chunk)
             val current = rawBuilder.toString()
             if (hasCompleteStreamFeatures(current)) {
-                return
+                return current
             }
         }
         throw XmppResultException("Stream restart did not return valid <stream:features>.")
@@ -288,6 +295,15 @@ public class DefaultKmpXmppClient(
     private fun hasCompleteStreamFeatures(xml: String): Boolean {
         val featuresTag = XmppXmlMiniParser.parseStartTags(xml).firstOrNull { it.name == "features" } ?: return false
         return XmppXmlMiniParser.tagInnerXml(xml, featuresTag) != null
+    }
+
+    private fun registerAdvertisedFeatures(xml: String) {
+        val tags = XmppXmlMiniParser.parseStartTags(xml)
+        for (tag in tags) {
+            val namespace = tag.attributes["xmlns"] ?: continue
+            if (namespace == "http://etherx.jabber.org/streams") continue
+            capabilityRegistry.register(XmppFeatureId(namespace))
+        }
     }
 
     private fun escapeScramUsername(username: String): String =
@@ -380,4 +396,8 @@ public class DefaultKmpXmppClient(
                 XmppResult.Success(Unit)
             }.getOrThrow()
         }
+
+    override fun supportsFeature(featureId: XmppFeatureId): Boolean = capabilityRegistry.supports(featureId)
+
+    override fun advertisedFeatures(): Set<XmppFeatureId> = capabilityRegistry.snapshot()
 }

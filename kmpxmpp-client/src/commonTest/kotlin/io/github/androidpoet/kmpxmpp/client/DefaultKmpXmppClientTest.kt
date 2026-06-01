@@ -2,6 +2,8 @@ package io.github.androidpoet.kmpxmpp.client
 
 import io.github.androidpoet.kmpxmpp.core.Jid
 import io.github.androidpoet.kmpxmpp.core.XmppError
+import io.github.androidpoet.kmpxmpp.core.XmppFeatureCatalog
+import io.github.androidpoet.kmpxmpp.core.XmppFeaturePolicy
 import io.github.androidpoet.kmpxmpp.core.XmppResult
 import io.github.androidpoet.kmpxmpp.core.XmppRetryPolicy
 import io.github.androidpoet.kmpxmpp.sasl.SaslAuthenticationService
@@ -104,6 +106,43 @@ class DefaultKmpXmppClientTest {
 
         assertIs<XmppResult.Failure>(result)
         assertEquals("SCRAM server verifier mismatch.", result.error.message)
+    }
+
+    @Test
+    fun test_client_advertisedFeatures_whenAuthCompletes_exposesCapabilities() = runTest {
+        val stream = FakeStreamEngine(
+            startResult = XmppResult.Success(Unit),
+            stateAfterStart = XmppStreamState.Ready,
+            contextAfterStart = XmppSessionContext(
+                tlsActive = true,
+                serverMechanisms = setOf(SaslMechanism.Plain),
+            ),
+        )
+        val transport = FakeTransport(
+            readResults = listOf(
+                XmppResult.Success(
+                    "<success xmlns='urn:ietf:params:xml:ns:xmpp-sasl'/>",
+                ),
+                XmppResult.Success(
+                    "<stream:features><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'/>" +
+                        "<c xmlns='urn:xmpp:carbons:2'/></stream:features>",
+                ),
+                XmppResult.Success("<iq type='result' id='bind-1'><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'/></iq>"),
+            ),
+        )
+        val client = DefaultKmpXmppClient(
+            streamEngine = stream,
+            transport = transport,
+            saslAuthenticationService = FakeAuthService(XmppResult.Success(SaslMechanism.Plain)),
+            featurePolicy = XmppFeaturePolicy.AllowAll,
+        )
+
+        client.connect()
+        val authResult = client.authenticate(Jid("alice", "example.com"), "secret")
+
+        assertIs<XmppResult.Success<Unit>>(authResult)
+        assertTrue(client.supportsFeature(XmppFeatureCatalog.Carbons))
+        assertTrue(client.advertisedFeatures().isNotEmpty())
     }
 
     @Test
