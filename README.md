@@ -1,5 +1,15 @@
 ![KmpXMPP](docs/images/kmpxmpp-header.png)
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Kotlin-2.2.0-blue.svg?logo=kotlin" alt="Kotlin">
+  <img src="https://img.shields.io/badge/Ktor-3.2.2-blue.svg" alt="Ktor">
+  <img src="https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20JVM%20%7C%20macOS%20%7C%20Linux%20%7C%20Windows%20%7C%20WasmJs-green.svg" alt="Platforms">
+  <img src="https://img.shields.io/github/actions/workflow/status/AndroidPoet/kmpxmpp/build.yml?branch=main&label=Build" alt="Build">
+  <img src="https://img.shields.io/github/actions/workflow/status/AndroidPoet/kmpxmpp/publish.yml?branch=main&label=Publish" alt="Publish">
+  <img src="https://img.shields.io/badge/Maven%20Central-0.1.0--alpha01-blue.svg" alt="Maven Central">
+  <img src="https://img.shields.io/badge/License-MIT-orange.svg" alt="License">
+</p>
+
 # KmpXMPP
 
 Kotlin Multiplatform XMPP SDK for Android, iOS, and JVM/Desktop, with modular RFC/XEP support and Docker-backed interop tests.
