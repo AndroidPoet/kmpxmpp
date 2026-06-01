@@ -1,5 +1,7 @@
 package io.github.androidpoet.kmpxmpp.core
 
+import kotlin.jvm.JvmInline
+
 @JvmInline
 public value class XmppFeatureId(public val value: String) {
     init {
