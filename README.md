@@ -72,21 +72,21 @@ fun main(): Unit = runBlocking {
     val client = DefaultKmpXmppClient(streamEngine = orchestrator, transport = transport)
     val chat = DefaultXmppMessageService(client)
 
-    try {
-        when (val connect = client.connect()) {
-            is XmppResult.Success -> Unit
-            is XmppResult.Failure -> error("connect failed: ${connect.error.message}")
-        }
-        when (val auth = client.authenticate(me, "strong-password")) {
-            is XmppResult.Success -> Unit
-            is XmppResult.Failure -> error("auth failed: ${auth.error.message}")
-        }
-        when (val send = chat.sendChatMessage(peer, "hello from kmpxmpp")) {
-            is XmppResult.Success -> Unit
-            is XmppResult.Failure -> error("send failed: ${send.error.message}")
-        }
-    } finally {
-        client.disconnect()
+    when (val connect = client.connect()) {
+        is XmppResult.Success -> Unit
+        is XmppResult.Failure -> error("connect failed: ${connect.error.message}")
+    }
+    when (val auth = client.authenticate(me, "strong-password")) {
+        is XmppResult.Success -> Unit
+        is XmppResult.Failure -> error("auth failed: ${auth.error.message}")
+    }
+    when (val send = chat.sendChatMessage(peer, "hello from kmpxmpp")) {
+        is XmppResult.Success -> Unit
+        is XmppResult.Failure -> error("send failed: ${send.error.message}")
+    }
+    when (val disconnect = client.disconnect()) {
+        is XmppResult.Success -> Unit
+        is XmppResult.Failure -> error("disconnect failed: ${disconnect.error.message}")
     }
 }
 ```
