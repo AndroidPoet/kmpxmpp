@@ -46,7 +46,8 @@ dependencies {
 ```kotlin
 import io.github.androidpoet.kmpxmpp.client.DefaultKmpXmppClient
 import io.github.androidpoet.kmpxmpp.core.Jid
-import io.github.androidpoet.kmpxmpp.core.XmppResult
+import io.github.androidpoet.kmpxmpp.core.onFailure
+import io.github.androidpoet.kmpxmpp.core.onSuccess
 import io.github.androidpoet.kmpxmpp.im.DefaultXmppMessageService
 import io.github.androidpoet.kmpxmpp.stream.XmppSessionConfig
 import io.github.androidpoet.kmpxmpp.stream.XmppSessionOrchestrator
@@ -72,22 +73,18 @@ fun main(): Unit = runBlocking {
     val client = DefaultKmpXmppClient(streamEngine = orchestrator, transport = transport)
     val chat = DefaultXmppMessageService(client)
 
-    when (val connect = client.connect()) {
-        is XmppResult.Success -> Unit
-        is XmppResult.Failure -> error("connect failed: ${connect.error.message}")
-    }
-    when (val auth = client.authenticate(me, "strong-password")) {
-        is XmppResult.Success -> Unit
-        is XmppResult.Failure -> error("auth failed: ${auth.error.message}")
-    }
-    when (val send = chat.sendChatMessage(peer, "hello from kmpxmpp")) {
-        is XmppResult.Success -> Unit
-        is XmppResult.Failure -> error("send failed: ${send.error.message}")
-    }
-    when (val disconnect = client.disconnect()) {
-        is XmppResult.Success -> Unit
-        is XmppResult.Failure -> error("disconnect failed: ${disconnect.error.message}")
-    }
+    client.connect()
+        .onFailure { error("connect failed: ${it.message}") }
+
+    client.authenticate(me, "strong-password")
+        .onFailure { error("auth failed: ${it.message}") }
+
+    chat.sendChatMessage(peer, "hello from kmpxmpp")
+        .onFailure { error("send failed: ${it.message}") }
+        .onSuccess { println("message sent to ${peer.asBareJid()}") }
+
+    client.disconnect()
+        .onFailure { error("disconnect failed: ${it.message}") }
 }
 ```
 
