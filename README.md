@@ -1,97 +1,35 @@
 # KmpXMPP
 
-A Kotlin Multiplatform XMPP library focused on RFC/XEP correctness, secure defaults, and modular architecture.
+Kotlin Multiplatform XMPP SDK for Android, iOS, and JVM/Desktop, with modular RFC/XEP support and Docker-backed interop tests.
 
-## Vision
+## Install (No BOM)
 
-KmpXMPP is built as a standards-first foundation for modern chat products (WhatsApp-style UX, team chat, customer messaging, IoT messaging) on top of open XMPP servers.
+KmpXMPP is published as separate modules. Add only what you use.
 
-It targets:
-- Android
-- iOS
-- JVM/Desktop
-- macOS
-- Linux
-- Windows (mingw)
-- Web (WASM)
+```kotlin
+dependencies {
+    implementation("io.github.androidpoet:kmpxmpp-core:0.1.0-alpha01")
+    implementation("io.github.androidpoet:kmpxmpp-client:0.1.0-alpha01")
+    implementation("io.github.androidpoet:kmpxmpp-im:0.1.0-alpha01")
+    implementation("io.github.androidpoet:kmpxmpp-websocket:0.1.0-alpha01")
 
-## Design Principles
-
-- Secure-by-default behavior.
-- Explicit protocol state machine.
-- Result-based API surface (`KmpXmppResult`) instead of leaked exceptions.
-- Transport/protocol separation.
-- Extension modules for optional XEP features.
-
-## Standards Strategy
-
-Core standards to implement first:
-- RFC 6120 (XMPP Core)
-- RFC 6121 (IM & Presence)
-- RFC 7622 (JID)
-- RFC 7590 (TLS usage in XMPP)
-- RFC 7395 (XMPP over WebSocket)
-
-Planned extension standards:
-- XEP-0198 Stream Management
-- XEP-0184 Delivery Receipts
-- XEP-0280 Message Carbons
-- XEP-0045 Multi-User Chat
-- XEP-0384 OMEMO
-
-## Module Architecture (Current Base)
-
-- `kmpxmpp-core`
-  - Result/error primitives
-  - JID model
-  - Shared domain types
-
-- `kmpxmpp-security`
-  - Security policy model
-  - TLS and auth policy contracts
-
-- `kmpxmpp-sasl`
-  - SASL mechanism modeling and negotiation contracts
-
-- `kmpxmpp-transport`
-  - Transport abstraction (`connect/write/read/close`)
-
-- `kmpxmpp-stream`
-  - RFC 6120 state machine contracts
-
-- `kmpxmpp-client`
-  - Public client facade contracts
-
-- `kmpxmpp-tcp`
-  - TCP transport configuration and adapter surface (JVM-only)
-
-- `kmpxmpp-websocket`
-  - RFC 7395 WebSocket transport configuration and adapter surface (Ktor multiplatform path for Android/iOS/JVM)
-
-## Security Defaults
-
-- TLS is required by default.
-- Plain authentication without TLS is disabled by default.
-- Insecure modes must be explicit opt-in.
-- Secret material must never be logged.
-
-## Result-Based API
-
-KmpXMPP APIs return `KmpXmppResult<T>`:
-- `Success<T>(value)` for success
-- `Failure(error)` for controlled failures
-
-This keeps error handling explicit and deterministic across platforms.
-
-## Build
-
-```bash
-./gradlew build
+    // Optional XEPs:
+    implementation("io.github.androidpoet:kmpxmpp-xep-0184-receipts:0.1.0-alpha01")
+    implementation("io.github.androidpoet:kmpxmpp-xep-0333-chat-markers:0.1.0-alpha01")
+    implementation("io.github.androidpoet:kmpxmpp-xep-0085-chat-states:0.1.0-alpha01")
+}
 ```
 
-## Quickstart (`main`)
+## Module Structure
 
-Minimal JVM example:
+- Core/runtime: `kmpxmpp-core`, `kmpxmpp-client`, `kmpxmpp-stream`, `kmpxmpp-transport`, `kmpxmpp-xml`
+- Security/auth: `kmpxmpp-security`, `kmpxmpp-sasl`, `kmpxmpp-sm`, `kmpxmpp-reconnect`
+- Transports: `kmpxmpp-websocket` (KMP/Ktor), `kmpxmpp-tcp` (JVM TCP adapter)
+- IM/features: `kmpxmpp-im`, `kmpxmpp-xep-*` extension modules
+- OMEMO track: `kmpxmpp-omemo-core`, `kmpxmpp-omemo-persistence-sqlite`, `kmpxmpp-xep-0384-omemo`
+- Testing/sample: `kmpxmpp-interop-tests`, `kmpxmpp-sample-whatsapp-jvm`
+
+## Quick Start
 
 ```kotlin
 import io.github.androidpoet.kmpxmpp.client.DefaultKmpXmppClient
@@ -106,111 +44,71 @@ import kotlinx.coroutines.runBlocking
 fun main(): Unit = runBlocking {
     val host = "localhost"
     val port = 5280
-    val jid = Jid(local = "alice", domain = host)
-    val password = "strong-password"
+    val me = Jid(local = "alice", domain = host)
     val peer = Jid(local = "bob", domain = host)
 
-    val transport = createWebSocketXmppTransport(
-        path = "/xmpp-websocket",
-        secure = false,
-    )
+    val transport = createWebSocketXmppTransport(path = "/xmpp-websocket", secure = false)
     val orchestrator = XmppSessionOrchestrator(
-        config = XmppSessionConfig(
-            host = host,
-            port = port,
-            tlsInitiallyActive = false,
-        ),
+        config = XmppSessionConfig(host = host, port = port, tlsInitiallyActive = false),
         transport = transport,
     )
-    val client = DefaultKmpXmppClient(
-        streamEngine = orchestrator,
-        transport = transport,
-    )
-    val messages = DefaultXmppMessageService(client)
+    val client = DefaultKmpXmppClient(streamEngine = orchestrator, transport = transport)
+    val chat = DefaultXmppMessageService(client)
 
-    require(client.connect() is XmppResult.Success) { "connect failed" }
-    require(client.authenticate(jid, password) is XmppResult.Success) { "auth failed" }
-    require(messages.sendChatMessage(peer, "hello from kmpxmpp") is XmppResult.Success) { "send failed" }
-    require(client.disconnect() is XmppResult.Success) { "disconnect failed" }
+    require(client.connect() is XmppResult.Success)
+    require(client.authenticate(me, "strong-password") is XmppResult.Success)
+    require(chat.sendChatMessage(peer, "hello from kmpxmpp") is XmppResult.Success)
+    require(client.disconnect() is XmppResult.Success)
 }
 ```
 
-Run the full Docker-backed sample flow:
+## Run + Verify
+
+Build:
 
 ```bash
-./gradlew :kmpxmpp-sample-whatsapp-jvm:run
+./gradlew build
 ```
 
-## Production Verification
-
-Minimum verification gates before release:
-
-```bash
-./gradlew productionVerify --no-daemon --stacktrace
-```
-
-CI workflows:
-- `.github/workflows/build.yml` (JVM compile + tests)
-- `.github/workflows/docker-e2e.yml` (full `productionVerify` gate including Prosody Docker interop + sample run)
-
-Production checklist:
-- `docs/PRODUCTION_READINESS.md`
-- Optional strict publish-secret validation:
-  - `KMPXMPP_ENFORCE_PUBLISH_SECRETS=true ./gradlew productionReleasePreflight --no-daemon --stacktrace`
-
-## Real Server Interop (Prosody, Docker)
+Docker-backed interop:
 
 ```bash
 KMPXMPP_RUN_DOCKER_E2E=true ./gradlew :kmpxmpp-interop-tests:jvmDockerE2e
 ```
 
-This starts a local Prosody container, runs JVM interop tests against it, and tears it down.
+Full release gate:
+
+```bash
+./gradlew productionVerify --no-daemon --stacktrace
+```
+
+Sample WhatsApp-style desktop flow:
+
+```bash
+./gradlew :kmpxmpp-sample-whatsapp-jvm:run
+```
+
+## Platform Notes
+
+- Android/iOS should use `kmpxmpp-websocket` (Ktor-based KMP transport).
+- `kmpxmpp-tcp` is a JVM transport adapter and not required for mobile-only apps.
+- TLS is required by default; plain auth without TLS is blocked unless explicitly enabled.
 
 ## Typed Feature Policy
 
-`kmpxmpp` now includes typed feature IDs and policy-aware capability registration in `kmpxmpp-core`.
+`kmpxmpp-core` includes typed feature IDs and policy gates:
 
-- `XmppFeatureId` (typed feature key)
+- `XmppFeatureId`
 - `XmppFeaturePolicy` (`StableOnly`, `AllowExperimental`, `AllowDeferred`, `AllowDeprecated`, `AllowAll`)
-- `XmppCapabilityRegistry` (policy-gated feature registry)
-- `XmppFeatureCatalog` (typed constants for common feature namespaces)
+- `XmppCapabilityRegistry`
+- `XmppFeatureCatalog`
 
-Example:
+Use `StableOnly` in production to avoid accidental activation of non-stable modules.
 
-```kotlin
-import io.github.androidpoet.kmpxmpp.client.DefaultKmpXmppClient
-import io.github.androidpoet.kmpxmpp.core.XmppFeatureCatalog
-import io.github.androidpoet.kmpxmpp.core.XmppFeaturePolicy
+## Production Readiness (Current Boundary)
 
-val client = DefaultKmpXmppClient(
-    streamEngine = orchestrator,
-    transport = transport,
-    featurePolicy = XmppFeaturePolicy.StableOnly,
-)
+- Ready baseline: core chat flows, presence, receipts/markers/states, Docker interop verification.
+- Not yet complete: fully audited OMEMO end-to-end crypto lifecycle/trust/session backup and restore claim.
+- Recommendation: publish as `alpha`, keep OMEMO marked as evolving, and keep `productionVerify` required in CI.
 
-// after connect/authentication:
-val hasCarbons = client.supportsFeature(XmppFeatureCatalog.Carbons)
-val advertised = client.advertisedFeatures()
-```
-
-Notes:
-- Feature discovery is populated from advertised stream feature namespaces.
-- `StableOnly` prevents registration of known non-stable feature descriptors in typed registration paths.
-
-## Publish Coordinates (planned)
-
-- `io.github.androidpoet:kmpxmpp-core`
-- `io.github.androidpoet:kmpxmpp-client`
-- `io.github.androidpoet:kmpxmpp-security`
-- `io.github.androidpoet:kmpxmpp-sasl`
-- `io.github.androidpoet:kmpxmpp-stream`
-- `io.github.androidpoet:kmpxmpp-transport`
-- `io.github.androidpoet:kmpxmpp-tcp`
-- `io.github.androidpoet:kmpxmpp-websocket`
-
-## Status
-
-Core architecture and major client flows are implemented with automated JVM and Docker-backed verification.
-For production adoption, keep release gates strict (JVM tests + Docker E2E + sample run) and validate against your target XMPP server policy set (TLS/auth mechanisms, MUC, upload, receipts).
-Current claim boundary: production-capable baseline chat workflows, but **not** full audited OMEMO E2EE lifecycle complete yet.
-Baseline production claim excludes deprecated/deferred/experimental XEP modules; `kmpxmpp-xep-0048-bookmarks` is deprecated and should move to `XEP-0402` for future-forward bookmark sync.
+Detailed checklist: `docs/PRODUCTION_READINESS.md`.
