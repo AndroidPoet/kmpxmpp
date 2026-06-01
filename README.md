@@ -199,8 +199,6 @@ Notes:
 
 ## Publish Coordinates (planned)
 
-- `io.github.androidpoet:kmpxmpp-bom` (baseline-safe module alignment)
-- `io.github.androidpoet:kmpxmpp-bom-nonbaseline` (deprecated/deferred/experimental alignment, opt-in)
 - `io.github.androidpoet:kmpxmpp-core`
 - `io.github.androidpoet:kmpxmpp-client`
 - `io.github.androidpoet:kmpxmpp-security`
@@ -216,22 +214,3 @@ Core architecture and major client flows are implemented with automated JVM and 
 For production adoption, keep release gates strict (JVM tests + Docker E2E + sample run) and validate against your target XMPP server policy set (TLS/auth mechanisms, MUC, upload, receipts).
 Current claim boundary: production-capable baseline chat workflows, but **not** full audited OMEMO E2EE lifecycle complete yet.
 Baseline production claim excludes deprecated/deferred/experimental XEP modules; `kmpxmpp-xep-0048-bookmarks` is deprecated and should move to `XEP-0402` for future-forward bookmark sync.
-
-Recommended dependency alignment:
-
-```kotlin
-dependencies {
-    implementation(platform("io.github.androidpoet:kmpxmpp-bom:<version>"))
-    implementation("io.github.androidpoet:kmpxmpp-core")
-    implementation("io.github.androidpoet:kmpxmpp-client")
-}
-```
-
-Optional non-baseline alignment (explicit opt-in only):
-
-```kotlin
-dependencies {
-    implementation(platform("io.github.androidpoet:kmpxmpp-bom-nonbaseline:<version>"))
-    implementation("io.github.androidpoet:kmpxmpp-xep-0384-omemo")
-}
-```
