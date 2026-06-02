@@ -1,3 +1,18 @@
+<p align="center">
+  <strong><span style="color:red;font-size:2.5em;">⚠️ WORK IN PROGRESS — NOT PRODUCTION READY ⚠️</span></strong>
+</p>
+
+<p align="center">
+  <strong style="font-size:1.3em;color:#cc3300;">
+    🚧 This project is under active development. 🚧<br>
+    🛡️ <strong>Security layer (OMEMO / end-to-end encryption) is coming soon.</strong> 🛡️<br>
+    ❌ <strong>Do not use this SDK in production yet.</strong> ❌<br>
+    🔒 <strong>Without the security layer, communications are NOT encrypted and are unsafe for real-world use.</strong>
+  </strong>
+</p>
+
+---
+
 ![KmpXMPP](docs/images/kmpxmpp-header.png)
 
 <p align="center">
