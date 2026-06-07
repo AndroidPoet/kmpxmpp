@@ -13,9 +13,7 @@
 
 ---
 
-<p align="center">
-  <img src="art/logo.svg" width="800" alt="KMPXMPP">
-</p>
+![KmpXMPP](docs/images/kmpxmpp-header.png)
 
 <p align="center">
   <img src="https://img.shields.io/badge/Kotlin-2.2.0-blue.svg?logo=kotlin" alt="Kotlin">
